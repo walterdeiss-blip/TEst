@@ -13,6 +13,19 @@ const SUITS = {
 const SUIT_ORDER = ['fire', 'water', 'grass', 'lightning'];
 const RANK_LABEL = { 6: '6', 7: '7', 8: '8', 9: '9', 10: '10', 11: 'B', 12: 'D', 13: 'K', 14: 'A' };
 const HP = [40, 50, 60, 60, 70, 80, 90, 100, 120];
+const DAMAGE = [10, 20, 20, 30, 40, 50, 60, 80, 120];
+const ENERGY = [1, 1, 1, 2, 2, 2, 3, 3, 4];
+
+// Attackennamen je Typ, passend zur Stärke der Karte
+const ATTACKS = {
+  fire:      ['Glut', 'Kratzer', 'Biss', 'Tritt', 'Feuerodem', 'Flammenwurf', 'Feuerwirbel', 'Hitzewelle', 'Inferno-Ansturm'],
+  water:     ['Platscher', 'Aquaknarre', 'Blubber', 'Kopfnuss', 'Aquawelle', 'Eisstrahl', 'Surfer', 'Hydropumpe', 'Hydrokanone'],
+  grass:     ['Fadenschuss', 'Giftstachel', 'Rankenhieb', 'Härtner', 'Rasierblatt', 'Doppelnadel', 'Schlitzer', 'Gifthorn', 'Solarstrahl'],
+  lightning: ['Funkensprung', 'Donnerschock', 'Magnetbombe', 'Donnerschlag', 'Explosion', 'Donnerwelle', 'Donnerzahn', 'Donnerblitz', 'Donner'],
+};
+const WEAKNESS = { fire: 'water', water: 'lightning', grass: 'fire', lightning: 'fighting' };
+const ENERGY_ICON = { fire: '🔥', water: '💧', grass: '🍃', lightning: '⚡', fighting: '👊', colorless: '★' };
+const energy = t => `<i class="en en-${t}">${ENERGY_ICON[t]}</i>`;
 
 // Je Typ 9 Pokémon, vom schwächsten (6) bis zum stärksten (Ass). [Name, Pokédex-Nr.]
 const POKEMON = {
@@ -46,7 +59,11 @@ for (const suit of SUIT_ORDER) {
 const CARD_BY_ID = new Map(ALL_CARDS.map(c => [c.id, c]));
 
 // Bilder vorladen, damit sie beim Ausspielen schon da sind
-ALL_CARDS.forEach(c => { const img = new Image(); img.src = artUrl(c.dex); });
+const imagesReady = Promise.all(ALL_CARDS.map(c => new Promise(done => {
+  const img = new Image();
+  img.onload = img.onerror = done;
+  img.src = artUrl(c.dex);
+})));
 
 function shuffle(a) {
   for (let i = a.length - 1; i > 0; i--) {
@@ -117,21 +134,37 @@ function getCardEl(card) {
   el.dataset.id = card.id;
   const s = SUITS[card.suit];
   const rk = RANK_LABEL[card.rank];
+  const i = card.rank - 6;
+  const cost = energy(card.suit).repeat(Math.min(ENERGY[i], 2)) + energy('colorless').repeat(Math.max(ENERGY[i] - 2, 0));
   el.innerHTML =
     `<div class="inner">
       <div class="front"><div class="face">
-        <div class="top"><span class="rk">${rk}</span><span class="ic">${s.icon}</span>
-          <span class="hp">${card.hp}<small>KP</small></span></div>
+        <div class="top">
+          <span class="stage">${i >= 4 ? 'PHASE' : 'BASIS'}</span>
+          <span class="name">${card.name}</span>
+          <span class="hp"><small>KP</small>${card.hp}</span>${energy(card.suit)}
+        </div>
         <div class="art" data-icon="${s.icon}"><img alt="" draggable="false"></div>
-        <div class="name">${card.name}</div>
-        <div class="foot"><span>${isTrump(card) ? '★ TRUMPF' : 'Nr. ' + String(card.dex).padStart(3, '0')}</span>
-          <span class="rk2">${rk}</span></div>
+        <div class="rank">${rk}</div>
+        <div class="dex">Nr. ${String(card.dex).padStart(3, '0')} · ${s.name}-Pokémon</div>
+        <div class="attack"><span class="cost">${cost}</span>
+          <span class="atk-name">${ATTACKS[card.suit][i]}</span><span class="dmg">${DAMAGE[i]}</span></div>
+        <div class="foot">
+          <span>Schwäche ${energy(WEAKNESS[card.suit])}+20</span>
+          <span>${isTrump(card) ? '<b class="trump-tag">★ TRUMPF</b>' : 'Rückzug ' + energy('colorless').repeat(Math.ceil(ENERGY[i] / 2))}</span>
+        </div>
       </div></div>
       <div class="back"><div class="ball"></div></div>
     </div>`;
   const art = el.querySelector('.art');
   const img = el.querySelector('img');
-  img.onerror = () => art.classList.add('noimg');
+  // Bei schlechter Verbindung bis zu 3× neu laden, sonst Typ-Symbol zeigen
+  let tries = 0;
+  img.onload = () => art.classList.remove('noimg');
+  img.onerror = () => {
+    art.classList.add('noimg');
+    if (++tries <= 3) setTimeout(() => { img.src = artUrl(card.dex) + '?r=' + tries; }, 1500 * tries);
+  };
   img.src = artUrl(card.dex);
   el.addEventListener('click', () => onCardTap(card, el));
   elCache.set(card.id, el);
@@ -463,6 +496,11 @@ async function animateChange(mutate, { stagger = 90, dur = 480 } = {}) {
 
 async function newGame() {
   busy = true;
+  // Kurz auf die Pokémon-Bilder warten (höchstens 4 s, danach geht's auch ohne)
+  const btn = $('#btn-start');
+  btn.textContent = 'Lade Pokémon…';
+  await Promise.race([imagesReady, sleep(4000)]);
+  btn.textContent = 'Spiel starten';
   hideScreens();
   elCache = new Map();
   S.deck = shuffle([...ALL_CARDS]);
