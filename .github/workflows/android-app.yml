@@ -32,7 +32,7 @@ jobs:
       - name: Capacitor-Projekt anlegen
         run: |
           mkdir -p app/www
-          cp -r index.html style.css game.js manifest.webmanifest icon.svg icons vendor app/www/
+          cp -r index.html style.css game.js music.js manifest.webmanifest icon.svg icons vendor app/www/
           cp -r assets app/assets
           cd app
           npm init -y > /dev/null

@@ -639,3 +639,105 @@ header {
 .rules h2 { text-align: center; color: #ffcb05; margin-top: 0; }
 .rules ul { padding-left: 18px; }
 .rules li { margin-bottom: 4px; }
+
+/* =========================================================
+ *  Russischer Stil: Holztisch, rote Tischdecke mit goldenem Rand
+ *  und Stickerei-Borte (Ruschnyk), Menüs in Rot und Gold
+ * ========================================================= */
+
+:root {
+  --ru-red: #a3161c;
+  --ru-dark: #4a070b;
+  --ru-gold: #e0b02f;
+  --ornament: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='12'%3E%3Crect width='24' height='12' fill='%23f3e6c8'/%3E%3Cpath d='M12 1L18 6L12 11L6 6Z' fill='%23b3121a'/%3E%3Cpath d='M12 4L14 6L12 8L10 6Z' fill='%23f3e6c8'/%3E%3Crect x='11' y='5' width='2' height='2' fill='%23d4a017'/%3E%3Cpath d='M0 3L3 6L0 9Z M24 3L21 6L24 9Z' fill='%23b3121a'/%3E%3Crect x='2' y='0' width='1' height='1' fill='%23222'/%3E%3Crect x='21' y='0' width='1' height='1' fill='%23222'/%3E%3Crect x='2' y='11' width='1' height='1' fill='%23222'/%3E%3Crect x='21' y='11' width='1' height='1' fill='%23222'/%3E%3C/svg%3E");
+}
+
+html, body { background: #2a140a; }
+
+/* Holztisch */
+#app {
+  background:
+    radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(0,0,0,.55) 100%),
+    repeating-linear-gradient(91deg,
+      rgba(255,255,255,.035) 0 2px, transparent 2px 9px,
+      rgba(0,0,0,.08) 9px 11px, transparent 11px 23px),
+    repeating-linear-gradient(89deg, #6a4126 0 37px, #5c3820 37px 71px, #70462a 71px 118px),
+    #5f3a22;
+}
+
+/* Rote Tischdecke mit Goldrand, Stickerei-Borte und „ДУРАК“-Schriftzug */
+#field {
+  margin: 2px 8px;
+  padding: 20px 10px;
+  border-radius: 14px;
+  border: 3px solid var(--ru-gold);
+  box-shadow: 0 6px 18px rgba(0,0,0,.55), inset 0 0 40px rgba(0,0,0,.45), inset 0 0 0 2px rgba(0,0,0,.35);
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='120' viewBox='0 0 300 120'%3E%3Ctext x='150' y='78' text-anchor='middle' font-family='Georgia,serif' font-weight='bold' font-size='64' letter-spacing='6' fill='%23f0c040' fill-opacity='.10'%3EДУРАК%3C/text%3E%3C/svg%3E") center / 78% auto no-repeat,
+    radial-gradient(circle at 50% 50%, rgba(240,192,64,.13) 0 1.5px, transparent 2px) 0 0 / 22px 22px,
+    radial-gradient(ellipse at 50% 45%, #b81d22 0%, #8c1216 55%, #5e0a0e 100%);
+}
+#field::before, #field::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  height: 12px;
+  background: var(--ornament) repeat-x;
+  background-size: auto 12px;
+  pointer-events: none;
+  opacity: .95;
+}
+#field::before { top: 3px; }
+#field::after { bottom: 3px; }
+
+#discard { border-color: rgba(240,192,64,.4); }
+#discard::before { color: #f0c040; opacity: .55; }
+.deck-empty { border-color: rgba(240,192,64,.4); }
+
+/* Kopfzeile */
+.hbtns { display: flex; gap: 6px; }
+.round { border-color: rgba(224,176,47,.7); background: rgba(74,7,11,.55); }
+.round.off { opacity: .6; }
+#trump-info { background: rgba(74,7,11,.7); border: 2px solid var(--ru-gold); color: #fff3cf; }
+#opp-label { color: #fff3cf; }
+#opp-label::before { content: '🪆 '; }
+#status { color: #fff6dc; }
+
+/* Meldungen */
+#toast {
+  background: linear-gradient(#8c1216, #4a070b);
+  border: 3px solid var(--ru-gold);
+  color: #ffd75e;
+  text-shadow: 0 2px 0 #2b0003;
+  box-shadow: 0 6px 20px rgba(0,0,0,.5);
+}
+
+/* Menüs */
+.screen { background: rgba(30, 8, 4, .72); }
+.panel {
+  position: relative;
+  padding-top: 34px;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(240,192,64,.10) 0 1.5px, transparent 2px) 0 0 / 20px 20px,
+    linear-gradient(170deg, #a3161c, #5e0a0e);
+  border-color: var(--ru-gold);
+}
+.panel::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: 10px;
+  height: 12px;
+  background: var(--ornament) repeat-x;
+  background-size: auto 12px;
+}
+.panel h2, #over-title, .rules h2 { color: #ffd75e; }
+.cyr {
+  margin-top: 4px;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: bold;
+  font-size: 20px;
+  letter-spacing: 6px;
+  color: #ffd75e;
+}
+.panel input { background: rgba(0,0,0,.3); }
+.big.blue { background: linear-gradient(#5b7cf0, #2b3ea8); box-shadow: 0 4px 0 #1c2870; }

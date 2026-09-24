@@ -1206,6 +1206,20 @@ computeSizes();
 showStats();
 render();
 
+/* ----- Musik ----- */
+
+function updateMusicButton() {
+  const on = Music.enabled();
+  const b = $('#btn-music');
+  b.textContent = on ? '🎵' : '🔇';
+  b.classList.toggle('off', !on);
+}
+$('#btn-music').addEventListener('click', () => {
+  Music.setEnabled(!Music.enabled());
+  updateMusicButton();
+});
+updateMusicButton();
+
 /* ----- Als App installieren ----- */
 
 const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;

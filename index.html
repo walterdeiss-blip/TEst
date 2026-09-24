@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#12301f">
+  <meta name="theme-color" content="#3b1d10">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -18,7 +18,10 @@
 <body>
   <div id="app">
     <header>
-      <button id="btn-rules" class="round" aria-label="Regeln">?</button>
+      <div class="hbtns">
+        <button id="btn-rules" class="round" aria-label="Regeln">?</button>
+        <button id="btn-music" class="round" aria-label="Musik an/aus">🎵</button>
+      </div>
       <div id="trump-info"></div>
       <button id="btn-new" class="round" aria-label="Neues Spiel">↻</button>
     </header>
@@ -51,6 +54,7 @@
   <div id="screen-start" class="screen">
     <div class="panel">
       <div class="logo"><span class="logo-ball"></span>Poké<b>Durak</b></div>
+      <div class="cyr">🪆 ДУРАК 🪆</div>
       <p class="sub">Das russische Kartenspiel – mit den Pokémon der ersten Generation</p>
       <div id="stats"></div>
       <button class="big" id="btn-start">Gegen den Computer</button>
@@ -119,6 +123,7 @@
     </div>
   </div>
 
+  <script src="music.js"></script>
   <script src="game.js"></script>
 </body>
 </html>
