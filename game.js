@@ -39,8 +39,10 @@ const POKEMON = {
               ['Magneton', 82], ['Blitza', 135], ['Raichu', 26], ['Zapdos', 145]],
 };
 
-const artUrl = dex =>
+const REMOTE_ART = dex =>
   `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${dex}.png`;
+// In der Android-App sind die Bilder eingebaut (img/<Nr>.png), sonst werden sie aus dem Netz geladen
+const artUrl = dex => (window.Capacitor ? `img/${dex}.png` : REMOTE_ART(dex));
 
 /* ---------- Spieler, Modus & Einstellungen ---------- */
 
@@ -215,25 +217,13 @@ function getCardEl(card) {
   el.dataset.id = card.id;
   const s = SUITS[card.suit];
   const rk = RANK_LABEL[card.rank];
-  const i = card.rank - 6;
-  const cost = energy(card.suit).repeat(Math.min(ENERGY[i], 2)) + energy('colorless').repeat(Math.max(ENERGY[i] - 2, 0));
   el.innerHTML =
     `<div class="inner">
       <div class="front"><div class="face">
-        <div class="top">
-          <span class="stage">${i >= 4 ? 'PHASE' : 'BASIS'}</span>
-          <span class="name">${card.name}</span>
-          <span class="hp"><small>KP</small>${card.hp}</span>${energy(card.suit)}
-        </div>
         <div class="art" data-icon="${s.icon}"><img alt="" draggable="false"></div>
         <div class="rank">${rk}</div>
-        <div class="dex">Nr. ${String(card.dex).padStart(3, '0')} · ${s.name}-Pokémon</div>
-        <div class="attack"><span class="cost">${cost}</span>
-          <span class="atk-name">${ATTACKS[card.suit][i]}</span><span class="dmg">${DAMAGE[i]}</span></div>
-        <div class="foot">
-          <span>Schwäche ${energy(WEAKNESS[card.suit])}+20</span>
-          <span>${isTrump(card) ? '<b class="trump-tag">★ TRUMPF</b>' : 'Rückzug ' + energy('colorless').repeat(Math.ceil(ENERGY[i] / 2))}</span>
-        </div>
+        <div class="type-badge">${energy(card.suit)}</div>
+        <div class="name">${isTrump(card) ? '★ ' : ''}${card.name}</div>
       </div></div>
       <div class="back"><div class="ball"></div></div>
     </div>`;
@@ -244,7 +234,7 @@ function getCardEl(card) {
   img.onload = () => art.classList.remove('noimg');
   img.onerror = () => {
     art.classList.add('noimg');
-    if (++tries <= 3) setTimeout(() => { img.src = artUrl(card.dex) + '?r=' + tries; }, 1500 * tries);
+    if (++tries <= 3) setTimeout(() => { img.src = REMOTE_ART(card.dex) + '?r=' + tries; }, 1500 * tries);
   };
   img.src = artUrl(card.dex);
   el.addEventListener('click', () => onCardTap(card, el));

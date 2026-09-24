@@ -40,6 +40,17 @@ jobs:
           npx cap init "PokéDurak" de.pokedurak.app --web-dir www
           npx cap add android
 
+      - name: Pokémon-Bilder in die App einbauen
+        run: |
+          mkdir -p app/www/img
+          for n in $(grep -oP "\['[^']+', \K\d+(?=\])" game.js | sort -un); do
+            curl -fsSL --retry 3 -o "app/www/img/$n.png" \
+              "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/$n.png"
+          done
+          mogrify -resize 320x320 app/www/img/*.png || true
+          ls app/www/img | wc -l
+          du -sh app/www/img
+
       - name: App-Icons erzeugen
         continue-on-error: true
         working-directory: app

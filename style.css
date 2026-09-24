@@ -838,3 +838,33 @@ html, body { background: #2a140a; }
 .ai-row .big { margin-top: 6px; padding: 10px; font-size: 15px; }
 #over-ranking { text-align: left; margin: 0 auto 8px; max-width: 260px; font-weight: 700; }
 #over-ranking:empty { display: none; }
+
+/* ---------- Karten nur mit Bild (ohne Werte/Attacken) ---------- */
+
+.face .art {
+  left: 5%; right: 5%;
+  top: 4%; height: 80%;
+  border-radius: calc(var(--cw) * .04);
+}
+.face .art img { inset: 1%; width: 98%; height: 98%; }
+.face .rank { left: 2%; top: 2%; }
+.face .type-badge {
+  position: absolute;
+  right: 3%; top: 3%;
+  z-index: 2;
+  line-height: 0;
+}
+.face .type-badge .en {
+  width: calc(var(--cw) * .17);
+  height: calc(var(--cw) * .17);
+  font-size: calc(var(--cw) * .1);
+  box-shadow: 0 0 0 calc(var(--cw) * .014) #fff, 0 1px 3px rgba(0,0,0,.5);
+}
+.face .name {
+  position: absolute;
+  left: 6%; right: 6%;
+  top: auto; bottom: 3%;
+  height: 10%;
+  font-size: calc(var(--cw) * .1);
+}
+.card.trump .face .name { background: linear-gradient(90deg, #fff6c2, #ffe066, #fff6c2); color: #6b4a00; }
