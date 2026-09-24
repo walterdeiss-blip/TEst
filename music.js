@@ -272,17 +272,39 @@ const Music = (() => {
   document.addEventListener('visibilitychange', () => {
     if (!ctx) return;
     if (document.hidden) ctx.suspend();
-    else if (playing) ctx.resume();
+    else ctx.resume();
   });
 
   // Browser erlauben Ton erst nach einer Berührung – beim ersten Tippen starten
+  // Ton freischalten – auch wenn die Musik aus ist (für die Soundeffekte).
+  // iPhones sperren den Ton z. B. nach einem Anruf wieder, darum bei jeder Berührung prüfen.
+  let unlocked = false;
   function unlock() {
-    if (enabled()) start();
-    ['pointerup', 'touchend', 'click', 'keydown'].forEach(t => document.removeEventListener(t, unlock, true));
+    const c = getCtx();
+    if (!c) return;
+    if (c.state !== 'running') c.resume();
+    if (!unlocked) {
+      unlocked = true;
+      const b = c.createBuffer(1, 1, 22050);   // stiller Ton: schaltet Ton auf dem iPhone frei
+      const src = c.createBufferSource();
+      src.buffer = b;
+      src.connect(c.destination);
+      src.start(0);
+      if (enabled()) start();
+    }
   }
-  ['pointerup', 'touchend', 'click', 'keydown'].forEach(t => document.addEventListener(t, unlock, true));
+  ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'].forEach(t => document.addEventListener(t, unlock, true));
 
-  return { start, stop, enabled, setEnabled, getCtx, isPlaying: () => playing };
+  // Musik kurz leiser drehen, damit Soundeffekte gut zu hören sind
+  function duck(ms = 1200) {
+    if (!playing || !master) return;
+    const t = ctx.currentTime;
+    master.gain.cancelScheduledValues(t);
+    master.gain.setTargetAtTime(0.12, t, 0.03);
+    master.gain.setTargetAtTime(0.55, t + ms / 1000, 0.25);
+  }
+
+  return { start, stop, enabled, setEnabled, getCtx, duck, isPlaying: () => playing };
 })();
 
 /* =========================================================
@@ -325,48 +347,56 @@ const Sfx = (() => {
     src.stop(t + dur + 0.02);
   }
 
-  // Cartoon-Schrei „Aaah!“: Sägezahn mit Vibrato durch „A“-Formanten
+  // Cartoon-Schrei „AAAAH!“: rauer Sägezahn mit Vibrato durch „A“-Formanten, leicht verzerrt
   function scream(ctx) {
     const t = ctx.currentTime + 0.02;
-    const dur = 0.7;
-    const dest = out(ctx, 0.9);
+    const dur = 1.0;
+    const dest = out(ctx, 0.75);
+    const shaper = ctx.createWaveShaper();
+    const curve = new Float32Array(1024);
+    for (let i = 0; i < curve.length; i++) { const x = i / 511.5 - 1; curve[i] = Math.tanh(x * 3); }
+    shaper.curve = curve;
+    shaper.connect(dest);
     const env = ctx.createGain();
     env.gain.setValueAtTime(0.0001, t);
-    env.gain.exponentialRampToValueAtTime(0.5, t + 0.04);
-    env.gain.setValueAtTime(0.5, t + dur - 0.25);
+    env.gain.exponentialRampToValueAtTime(0.9, t + 0.05);
+    env.gain.setValueAtTime(0.9, t + dur - 0.3);
     env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    env.connect(dest);
+    env.connect(shaper);
 
-    const o = ctx.createOscillator();
-    o.type = 'sawtooth';
-    o.frequency.setValueAtTime(480, t);
-    o.frequency.exponentialRampToValueAtTime(760, t + 0.12);
-    o.frequency.exponentialRampToValueAtTime(330, t + dur);
-    const lfo = ctx.createOscillator();
-    lfo.frequency.value = 8;
-    const lfoGain = ctx.createGain();
-    lfoGain.gain.value = 28;
-    lfo.connect(lfoGain).connect(o.frequency);
-
-    for (const [f, q, v] of [[800, 6, 1], [1150, 7, 0.7], [2900, 9, 0.35]]) {
-      const bp = ctx.createBiquadFilter();
-      bp.type = 'bandpass';
-      bp.frequency.value = f;
-      bp.Q.value = q;
-      const g = ctx.createGain();
-      g.gain.value = v;
-      o.connect(bp).connect(g).connect(env);
+    const voices = [[1, 0], [1.006, 0.3]];   // zwei leicht verstimmte Stimmen = rauer
+    for (const [detune] of voices) {
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(520 * detune, t);
+      o.frequency.exponentialRampToValueAtTime(880 * detune, t + 0.15);
+      o.frequency.setValueAtTime(880 * detune, t + 0.45);
+      o.frequency.exponentialRampToValueAtTime(300 * detune, t + dur);
+      const lfo = ctx.createOscillator();
+      lfo.frequency.value = 9;
+      const lfoGain = ctx.createGain();
+      lfoGain.gain.value = 40;
+      lfo.connect(lfoGain).connect(o.frequency);
+      for (const [f, q, v] of [[850, 5, 1.2], [1250, 6, 0.9], [2800, 8, 0.5]]) {
+        const bp = ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.value = f;
+        bp.Q.value = q;
+        const g = ctx.createGain();
+        g.gain.value = v;
+        o.connect(bp).connect(g).connect(env);
+      }
+      o.start(t); lfo.start(t);
+      o.stop(t + dur + 0.05); lfo.stop(t + dur + 0.05);
     }
-    // etwas Atem/Rauheit
-    noiseBurst(ctx, env, t, dur, 'bandpass', 1400, 900, 1.2, 0.25);
-    o.start(t); lfo.start(t);
-    o.stop(t + dur + 0.05); lfo.stop(t + dur + 0.05);
+    // Atem/Rauheit
+    noiseBurst(ctx, env, t, dur, 'bandpass', 1600, 900, 1.2, 0.35);
   }
 
   // Spucken „Ptui!“ – mit kleinem Aufklatschen
   function spit(ctx) {
     const t = ctx.currentTime + 0.02;
-    const dest = out(ctx, 1);
+    const dest = out(ctx, 1.8);
     // „P“: kurzer, dumpfer Lippenknall
     noiseBurst(ctx, dest, t, 0.03, 'lowpass', 900, 300, 0.7, 0.9);
     // „tjui“: zischender Luftstoß, Filter steigt
@@ -390,6 +420,8 @@ const Sfx = (() => {
   function bljat() {
     const ctx = Music.getCtx();
     if (!ctx) return;
+    if (ctx.state !== 'running') ctx.resume();
+    Music.duck(1300);
     last = !last;
     if (last) scream(ctx); else spit(ctx);
   }
