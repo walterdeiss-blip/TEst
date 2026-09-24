@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#12301f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>PokéDurak</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <button id="btn-rules" class="round" aria-label="Regeln">?</button>
+      <div id="trump-info"></div>
+      <button id="btn-new" class="round" aria-label="Neues Spiel">↻</button>
+    </header>
+
+    <section id="opp">
+      <div id="opp-hand"></div>
+      <div id="opp-label">Rivale <span id="opp-count">0</span></div>
+    </section>
+
+    <section id="field">
+      <div id="side">
+        <div id="deck"></div>
+        <div id="discard"></div>
+      </div>
+      <div id="table"></div>
+      <div id="toast"></div>
+    </section>
+
+    <section id="controls">
+      <div id="status"></div>
+      <button id="action" class="hidden"></button>
+    </section>
+
+    <section id="hand"></section>
+  </div>
+
+  <!-- Ebene für fliegende Karten -->
+  <div id="fx"></div>
+
+  <div id="screen-start" class="screen">
+    <div class="panel">
+      <div class="logo"><span class="logo-ball"></span>Poké<b>Durak</b></div>
+      <p class="sub">Das russische Kartenspiel – mit den Pokémon der ersten Generation</p>
+      <div id="stats"></div>
+      <button class="big" id="btn-start">Spiel starten</button>
+      <button class="big ghost" id="btn-start-rules">Regeln</button>
+    </div>
+  </div>
+
+  <div id="screen-over" class="screen hidden">
+    <div class="panel">
+      <div id="over-emoji"></div>
+      <h2 id="over-title"></h2>
+      <p id="over-text"></p>
+      <button class="big" id="btn-again">Nochmal spielen</button>
+    </div>
+  </div>
+
+  <div id="screen-rules" class="screen hidden">
+    <div class="panel rules">
+      <h2>Durak – Regeln</h2>
+      <p><b>Ziel:</b> Werde alle Karten los. Wer am Ende noch Karten hat, ist der <b>Durak</b> (der Dumme).</p>
+      <p><b>Karten:</b> 36 Pokémon-Karten in 4 Typen (Farben):
+        🔥 Feuer, 💧 Wasser, 🍃 Pflanze, ⚡ Elektro. Jede Farbe hat 9 Stärken: 6, 7, 8, 9, 10, B, D, K, A
+        (vom schwächsten Pokémon bis zur Endentwicklung).</p>
+      <p><b>Trumpf:</b> Die unterste Karte des Stapels liegt offen und bestimmt den Trumpf-Typ. Trumpf-Karten haben einen goldenen Rahmen.</p>
+      <p><b>Ablauf:</b> Jeder bekommt 6 Karten. Wer den niedrigsten Trumpf hat, greift zuerst an.</p>
+      <ul>
+        <li>Der Angreifer legt eine Karte.</li>
+        <li>Der Verteidiger schlägt sie mit einer <b>höheren Karte desselben Typs</b> oder mit einem <b>Trumpf</b> (ein Trumpf nur mit höherem Trumpf).</li>
+        <li>Der Angreifer darf weitere Karten nachlegen, deren <b>Wert schon auf dem Tisch liegt</b> – höchstens 6 pro Runde (erste Runde 5) und nie mehr, als der Verteidiger Karten hat.</li>
+        <li>Alles geschlagen und der Angreifer sagt <b>Bito</b>: die Karten kommen auf den Ablagestapel, der Verteidiger greift als Nächstes an.</li>
+        <li>Kann oder will der Verteidiger nicht schlagen, <b>nimmt</b> er alle Karten auf. Der Angreifer darf vorher noch passende Karten dazugeben. Dann greift der Angreifer erneut an.</li>
+        <li>Nach jeder Runde ziehen alle wieder auf 6 Karten auf (zuerst der Angreifer).</li>
+      </ul>
+      <p><b>Bedienung:</b> Tippe eine leuchtende Karte in deiner Hand an, um sie zu spielen. Mit dem Knopf rechts sagst du <i>Bito</i>, <i>Nehmen</i> oder <i>Fertig</i>.</p>
+      <button class="big" id="btn-rules-close">Verstanden</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
