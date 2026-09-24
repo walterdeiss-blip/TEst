@@ -157,7 +157,7 @@ header {
 #discard .card { position: absolute; left: -2px; top: -2px; }
 #discard .count { right: -14px; bottom: -10px; }
 #discard::before {
-  content: 'Bito';
+  content: 'Dawai';
   position: absolute; inset: 0;
   display: grid; place-items: center;
   font-size: 11px; opacity: .35; font-weight: 700;

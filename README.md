@@ -60,8 +60,8 @@ geladen. Ohne Internet zeigen die Karten stattdessen das Typ-Symbol.
 - Angegriffene Karten werden mit einer höheren Karte desselben Typs oder mit einem Trumpf geschlagen.
 - Der Angreifer darf Karten nachlegen, deren Wert bereits auf dem Tisch liegt
   (max. 6 pro Runde, in der ersten Runde 5, und nie mehr als der Verteidiger Karten hat).
-- **Bito**: alles geschlagen → Karten auf den Ablagestapel, der Verteidiger greift als Nächstes an.
-- **Nehmen**: der Verteidiger nimmt alle Karten auf (der Angreifer darf vorher noch nachlegen)
+- **Dawai**: alles geschlagen → Karten auf den Ablagestapel, der Verteidiger greift als Nächstes an.
+- **Bljat**: der Verteidiger nimmt alle Karten auf (der Angreifer darf vorher noch nachlegen)
   und setzt aus – der Angreifer greift erneut an.
 - Nach jeder Runde wird auf 6 Karten aufgefüllt (Angreifer zuerst).
 - Ist der Stapel leer, gewinnt, wer zuerst keine Karten mehr hat. Wer übrig bleibt, ist der **Durak**.

@@ -369,18 +369,18 @@ function renderControls(humanTurn) {
   if (S.phase === 'defend') {
     const canBeat = S.hands[ME].some(c => isPlayable(c));
     status.textContent = canBeat
-      ? 'Verteidige dich! Schlage die markierte Karte – oder nimm auf.'
-      : 'Du kannst nicht schlagen – nimm die Karten auf.';
+      ? 'Verteidige dich! Schlage die markierte Karte – oder sag Bljat und nimm auf.'
+      : 'Du kannst nicht schlagen – sag Bljat und nimm die Karten auf.';
     btn.className = 'take';
-    btn.textContent = 'Nehmen';
+    btn.textContent = 'Bljat';
     btn.dataset.act = 'take';
   } else if (S.phase === 'attack') {
     if (S.table.length === 0) {
       status.textContent = 'Du greifst an – spiele eine Karte.';
     } else {
-      status.textContent = 'Alles geschlagen. Lege eine passende Karte nach oder sag Bito.';
+      status.textContent = 'Alles geschlagen. Lege eine passende Karte nach oder sag Dawai.';
       btn.className = '';
-      btn.textContent = 'Bito';
+      btn.textContent = 'Dawai';
       btn.dataset.act = 'bito';
     }
   } else if (S.phase === 'throwin') {
@@ -589,7 +589,7 @@ async function loop() {
     busy = true;
     render();
     await sleep(700);
-    say(null, 'Bito!');
+    say(null, 'Dawai!');
     await endRound(false);
     busy = false;
     return loop();
@@ -696,11 +696,11 @@ async function doAction(seat, act) {
     busy = true;
     S.phase = 'throwin';
     render();
-    say(seat, 'Du nimmst auf', '{n} nimmt auf!');
+    say(seat, 'Bljat! Du nimmst auf', '{n}: Bljat!');
     await sleep(300);
   } else if (act === 'bito' && S.phase === 'attack' && S.table.length > 0) {
     busy = true;
-    say(null, 'Bito!');
+    say(null, 'Dawai!');
     await endRound(false);
   } else if (act === 'done' && S.phase === 'throwin') {
     busy = true;
@@ -762,7 +762,7 @@ async function aiTurn() {
       choice = null;
     }
     if (!choice) {
-      say(OPP, 'Du nimmst auf', '{n} nimmt auf!');
+      say(OPP, 'Bljat! Du nimmst auf', '{n}: Bljat!');
       S.phase = 'throwin';
       await sleep(400);
       return;
@@ -774,7 +774,7 @@ async function aiTurn() {
     if (S.table.length === 0) return playAttack(OPP, pickLead(hand));
     const c = pickAdd(hand);
     if (c) return playAttack(OPP, c);
-    say(null, 'Bito!');
+    say(null, 'Dawai!');
     return endRound(false);
   }
 

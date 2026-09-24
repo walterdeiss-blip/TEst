@@ -1,7 +1,7 @@
 /* PokéDurak – Service Worker: macht das Spiel installierbar und offline spielbar. */
 'use strict';
 
-const VERSION = 'pokedurak-v1';
+const VERSION = 'pokedurak-v2';
 const CORE = [
   './',
   'index.html',
