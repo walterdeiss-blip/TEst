@@ -594,6 +594,7 @@ header {
   box-shadow: 0 4px 0 #b38f00;
 }
 .big:active { transform: translateY(3px); box-shadow: 0 1px 0 #b38f00; }
+.big.green { background: linear-gradient(#7ee08a, #3aa84b); color: #fff; box-shadow: 0 4px 0 #23702f; }
 .big.blue { background: linear-gradient(#6b8cff, #3b4cca); color: #fff; box-shadow: 0 4px 0 #26318a; }
 .big:disabled { opacity: .6; }
 .panel h2 { color: #ffcb05; margin: 0 0 14px; }

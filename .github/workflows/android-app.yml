@@ -1,0 +1,81 @@
+# Baut aus der Web-App eine Android-App (APK) und stellt sie unter "Releases" zum Download bereit.
+name: Android-App bauen
+
+on:
+  push:
+    branches: [claude/pokemon-durak-card-game-d4rjae]
+    paths-ignore: ['README.md']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-app
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Capacitor-Projekt anlegen
+        run: |
+          mkdir -p app/www
+          cp -r index.html style.css game.js manifest.webmanifest icon.svg icons vendor app/www/
+          cp -r assets app/assets
+          cd app
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
+          npx cap init "PokéDurak" de.pokedurak.app --web-dir www
+          npx cap add android
+
+      - name: App-Icons erzeugen
+        continue-on-error: true
+        working-directory: app
+        run: npx --yes @capacitor/assets@3 generate --android --iconBackgroundColor '#1d4d36' --iconBackgroundColorDark '#1d4d36'
+
+      - name: Hochformat, Farben und Versionsnummer
+        working-directory: app/android
+        run: |
+          sed -i 's/android:name=".MainActivity"/android:name=".MainActivity"\n            android:screenOrientation="portrait"/' app/src/main/AndroidManifest.xml
+          sed -i "s/versionCode 1$/versionCode ${GITHUB_RUN_NUMBER}/; s/versionName \"1.0\"/versionName \"1.${GITHUB_RUN_NUMBER}\"/" app/build.gradle
+          grep -n "screenOrientation" app/src/main/AndroidManifest.xml
+          grep -n "versionCode\|versionName" app/build.gradle
+
+      - name: Web-Dateien übernehmen
+        working-directory: app
+        run: npx cap sync android
+
+      - name: APK bauen
+        working-directory: app/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/PokeDurak.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PokeDurak-apk
+          path: PokeDurak.apk
+
+      - name: Als Release veröffentlichen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete android-app --yes --cleanup-tag || true
+          gh release create android-app PokeDurak.apk \
+            --target "$GITHUB_SHA" \
+            --latest \
+            --title "PokéDurak – Android-App" \
+            --notes "Zum Installieren die Datei **PokeDurak.apk** auf dem Android-Handy herunterladen und öffnen. Beim ersten Mal fragt Android, ob Apps aus dieser Quelle installiert werden dürfen – das einmal erlauben. Build ${GITHUB_RUN_NUMBER} von ${GITHUB_SHA::7}."

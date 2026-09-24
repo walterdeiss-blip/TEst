@@ -1032,6 +1032,13 @@ function makeCode() {
   return c;
 }
 
+// In der Android-App läuft die Seite unter https://localhost – Einladungen zeigen dann auf die Web-Version
+const PUBLIC_URL = 'https://walterdeiss-blip.github.io/TEst/';
+function webBaseUrl() {
+  if (window.Capacitor || location.protocol === 'file:') return PUBLIC_URL;
+  return location.origin + location.pathname;
+}
+
 function onlineMsg(text) { $('#online-msg').textContent = text; }
 
 function loadPeerJS() {
@@ -1133,7 +1140,7 @@ async function joinGame() {
 async function shareInvite() {
   const code = $('#room-code').textContent;
   const extra = LOCAL_TEST ? '&local=1' : PEER_SERVER ? '&peerserver=' + PEER_SERVER : '';
-  const url = `${location.origin}${location.pathname}?join=${code}${extra}`;
+  const url = `${webBaseUrl()}?join=${code}${extra}`;
   const text = `Spiel mit mir PokéDurak! Code: ${code}`;
   try {
     if (navigator.share) { await navigator.share({ title: 'PokéDurak', text, url }); return; }
@@ -1198,6 +1205,33 @@ $('#player-name').value = myName;
 computeSizes();
 showStats();
 render();
+
+/* ----- Als App installieren ----- */
+
+const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost') && !window.Capacitor) {
+  navigator.serviceWorker.register('sw.js').catch(() => { /* ohne Offline-Modus weiter */ });
+}
+
+let installPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  installPrompt = e;
+  $('#btn-install').classList.remove('hidden');
+});
+window.addEventListener('appinstalled', () => $('#btn-install').classList.add('hidden'));
+$('#btn-install').addEventListener('click', async () => {
+  if (!installPrompt) return;
+  installPrompt.prompt();
+  await installPrompt.userChoice;
+  installPrompt = null;
+  $('#btn-install').classList.add('hidden');
+});
+// iPhone/iPad: kein Installations-Dialog, stattdessen Hinweis zeigen
+if (/iPhone|iPad|iPod/.test(navigator.userAgent) && !isStandalone() && !window.Capacitor) {
+  $('#ios-install').classList.remove('hidden');
+}
 
 // Einladungslink ?join=CODE öffnet direkt den Beitreten-Dialog
 const joinParam = new URLSearchParams(location.search).get('join');

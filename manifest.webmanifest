@@ -1,11 +1,20 @@
 {
+  "id": "./",
   "name": "PokéDurak",
   "short_name": "PokéDurak",
-  "description": "Durak-Kartenspiel mit Pokémon der ersten Generation",
-  "start_url": ".",
+  "description": "Durak-Kartenspiel mit Pokémon der ersten Generation – gegen den Computer oder online mit Freunden",
+  "lang": "de",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#12301f",
   "theme_color": "#12301f",
-  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+  "categories": ["games"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
 }

@@ -4,14 +4,22 @@ Das russische Kartenspiel **Durak** als Handy-Spiel – statt normaler Spielkart
 mit Pokémon der ersten Generation. Die Karten werden animiert ausgeteilt, gelegt,
 aufgenommen und auf den Ablagestapel geworfen.
 
-## Spielen
+## Als App aufs Handy
 
-Es ist eine reine Web-App ohne Build-Schritt:
+**Web-Adresse:** https://walterdeiss-blip.github.io/TEst/
+(einmalig GitHub Pages einschalten: *Settings → Pages → Source: „Deploy from a branch“ →
+Branch `claude/pokemon-durak-card-game-d4rjae`, Ordner `/ (root)` → Save*)
 
-- `index.html` direkt im Browser öffnen, **oder**
-- den Ordner über einen Webserver bereitstellen (z. B. GitHub Pages:
-  *Settings → Pages → Branch auswählen*) und die Seite auf dem Handy öffnen.
-  Über „Zum Startbildschirm hinzufügen“ läuft das Spiel dann wie eine App im Vollbild.
+- **iPhone (Safari):** Seite öffnen → *Teilen* → **„Zum Home-Bildschirm“**.
+- **Android (Chrome):** Seite öffnen → Knopf **„📲 App installieren“** (oder Menü ⋮ → *App installieren*).
+- **Android als APK:** Unter [Releases](https://github.com/walterdeiss-blip/TEst/releases/tag/android-app)
+  die Datei `PokeDurak.apk` herunterladen und öffnen (einmalig „Installation aus dieser Quelle erlauben“).
+  Die APK wird bei jeder Änderung automatisch von GitHub Actions neu gebaut.
+
+Nach der Installation startet das Spiel im Vollbild mit eigenem Icon. Gegen den Computer
+funktioniert es auch offline; die Pokémon-Bilder werden beim ersten Laden gespeichert.
+
+Zum Ausprobieren am Computer genügt es auch, `index.html` im Browser zu öffnen.
 
 ## Online mit Freunden spielen
 
@@ -63,6 +71,9 @@ geladen. Ohne Internet zeigen die Karten stattdessen das Typ-Symbol.
 - `index.html` – Aufbau der Seite
 - `style.css` – Spielfeld, Kartendesign und Animationen
 - `game.js` – Spiellogik, Computergegner, Kartenanimationen und Online-Modus
+- `sw.js`, `manifest.webmanifest`, `icons/` – installierbare Web-App (PWA), offline spielbar
+- `assets/` – Ausgangsbilder für die Icons der Android-App
+- `.github/workflows/android-app.yml` – baut die Android-APK (Capacitor) und veröffentlicht sie als Release
 - `vendor/peerjs.min.js` – PeerJS 1.5.5 (MIT-Lizenz, siehe `vendor/peerjs-LICENSE`)
 
 *Fan-Projekt ohne kommerziellen Zweck. Pokémon und alle zugehörigen Namen sind Marken von
