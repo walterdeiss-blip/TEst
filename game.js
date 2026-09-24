@@ -42,7 +42,11 @@ const POKEMON = {
 const artUrl = dex =>
   `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${dex}.png`;
 
-const HUMAN = 0, AI = 1;
+// Sitzplätze 0 und 1. ME = eigener Platz (unten), OPP = Gegner (oben).
+// Gegen den Computer und als Gastgeber ist man Platz 0, als Gast Platz 1.
+let ME = 0, OPP = 1;
+let MODE = 'ai';            // 'ai' | 'host' | 'guest'
+let oppName = 'Rivale';
 const HAND_SIZE = 6;
 
 const $ = sel => document.querySelector(sel);
@@ -81,8 +85,8 @@ const S = {
   hands: [[], []],
   table: [],       // [{atk, def}]
   discard: [],
-  attacker: HUMAN,
-  defender: AI,
+  attacker: ME,
+  defender: OPP,
   phase: 'idle',   // 'attack' | 'defend' | 'throwin' (Verteidiger nimmt, Angreifer darf nachlegen)
   firstRound: true,
   over: false,
@@ -237,7 +241,7 @@ function layoutFan(container, els, cw, top) {
 }
 
 function render() {
-  const humanTurn = !busy && !S.over && actor() === HUMAN;
+  const humanTurn = !busy && !S.over && actor() === ME;
 
   // Trumpf-Anzeige
   $('#trump-info').innerHTML = S.trump
@@ -246,11 +250,12 @@ function render() {
 
   // Gegner
   const opp = $('#opp-hand');
-  const oppEls = S.hands[AI].map(c => prep(c, sizes.opp, { down: true }));
+  const oppEls = S.hands[OPP].map(c => prep(c, sizes.opp, { down: true }));
   opp.replaceChildren(...oppEls);
   layoutFan(opp, oppEls, sizes.opp, true);
-  $('#opp-count').textContent = S.hands[AI].length;
-  $('#opp').classList.toggle('active', !S.over && actor() === AI && S.phase !== 'idle');
+  $('#opp-count').textContent = S.hands[OPP].length;
+  $('#opp-name').textContent = oppName;
+  $('#opp').classList.toggle('active', !S.over && actor() === OPP && S.phase !== 'idle');
 
   // Stapel + Trumpf
   const deck = $('#deck');
@@ -316,7 +321,7 @@ function render() {
 
   // Eigene Hand
   const hand = $('#hand');
-  const sorted = sortHand(S.hands[HUMAN]);
+  const sorted = sortHand(S.hands[ME]);
   // Bei vielen Karten etwas kleiner, damit jede Karte antippbar bleibt
   const hcw = Math.round(sizes.hand * (sorted.length > 12 ? 0.8 : sorted.length > 8 ? 0.9 : 1));
   const handEls = sorted.map(c => {
@@ -328,18 +333,19 @@ function render() {
   layoutFan(hand, handEls, hcw, false);
 
   renderControls(humanTurn);
+  syncState();
 }
 
 function actor() {
   return S.phase === 'defend' ? S.defender : S.attacker;
 }
 
-function isPlayable(card) {
-  if (S.phase === 'defend' && S.defender === HUMAN) {
+function isPlayable(card, seat = ME) {
+  if (S.phase === 'defend' && S.defender === seat) {
     const p = uncoveredPair();
     return !!p && beats(p.atk, card);
   }
-  if ((S.phase === 'attack' || S.phase === 'throwin') && S.attacker === HUMAN) return canAdd(card);
+  if ((S.phase === 'attack' || S.phase === 'throwin') && S.attacker === seat) return canAdd(card);
   return false;
 }
 
@@ -352,16 +358,16 @@ function renderControls(humanTurn) {
   if (S.over || S.phase === 'idle') { status.textContent = ''; return; }
 
   if (!humanTurn) {
-    if (actor() === AI) {
-      status.textContent = S.phase === 'defend' ? 'Rivale verteidigt…'
-        : S.phase === 'throwin' ? 'Rivale legt dir noch Karten dazu…'
-        : 'Rivale greift an…';
+    if (actor() === OPP) {
+      status.textContent = S.phase === 'defend' ? `${oppName} verteidigt…`
+        : S.phase === 'throwin' ? `${oppName} legt dir noch Karten dazu…`
+        : `${oppName} greift an…`;
     }
     return;
   }
 
   if (S.phase === 'defend') {
-    const canBeat = S.hands[HUMAN].some(isPlayable);
+    const canBeat = S.hands[ME].some(c => isPlayable(c));
     status.textContent = canBeat
       ? 'Verteidige dich! Schlage die markierte Karte – oder nimm auf.'
       : 'Du kannst nicht schlagen – nimm die Karten auf.';
@@ -378,7 +384,7 @@ function renderControls(humanTurn) {
       btn.dataset.act = 'bito';
     }
   } else if (S.phase === 'throwin') {
-    status.textContent = 'Rivale nimmt auf – du darfst noch passende Karten dazugeben.';
+    status.textContent = `${oppName} nimmt auf – du darfst noch passende Karten dazugeben.`;
     btn.className = '';
     btn.textContent = 'Fertig';
     btn.dataset.act = 'done';
@@ -458,6 +464,7 @@ async function animateChange(mutate, { stagger = 90, dur = 480 } = {}) {
   const stack = $('#deck-stack') || $('#deck');
   const deckBox = { ...box(stack), rot: 0, down: true };
   const order = mutate() || [];
+  pendingOrder = order;
   render();
 
   const jobs = [];
@@ -492,17 +499,33 @@ async function animateChange(mutate, { stagger = 90, dur = 480 } = {}) {
   await Promise.all(jobs);
 }
 
-/* ---------- Spielablauf ---------- */
+/* ---------- Spielablauf (Computer-Spiel und Gastgeber) ---------- */
+
+const isAISeat = seat => MODE === 'ai' && seat === OPP;
+const isRemoteSeat = seat => MODE === 'host' && seat === OPP;
+
+// Meldung anzeigen – aus Sicht von "seat". '{n}' wird durch den Gegnernamen ersetzt.
+// Als Gastgeber geht die Meldung auch an den Gast, der sie aus seiner Sicht zeigt.
+function say(seat, mine, theirs = mine, ms) {
+  showSay(seat, mine, theirs, ms);
+  if (MODE === 'host') send({ t: 'say', seat, mine, theirs, ms });
+}
+function showSay(seat, mine, theirs, ms) {
+  const text = seat === null || seat === ME ? mine : theirs;
+  toast(text.replace('{n}', oppName), ms);
+}
 
 async function newGame() {
+  if (MODE === 'guest') { send({ t: 'again' }); return; }
   busy = true;
   // Kurz auf die Pokémon-Bilder warten (höchstens 4 s, danach geht's auch ohne)
   const btn = $('#btn-start');
   btn.textContent = 'Lade Pokémon…';
   await Promise.race([imagesReady, sleep(4000)]);
-  btn.textContent = 'Spiel starten';
+  btn.textContent = 'Gegen den Computer';
   hideScreens();
   elCache = new Map();
+  pendingRemote = null;
   S.deck = shuffle([...ALL_CARDS]);
   S.trump = S.deck[0].suit;
   S.hands = [[], []];
@@ -511,16 +534,17 @@ async function newGame() {
   S.phase = 'idle';
   S.firstRound = true;
   S.over = false;
+  if (MODE === 'host') send({ t: 'new' });
   computeSizes();
   render();
   await sleep(250);
-  toast(`Trumpf: ${SUITS[S.trump].icon} ${SUITS[S.trump].name}`, 1300);
+  say(null, `Trumpf: ${SUITS[S.trump].icon} ${SUITS[S.trump].name}`, undefined, 1300);
   await sleep(700);
 
   await animateChange(() => {
     const ids = [];
     for (let i = 0; i < HAND_SIZE; i++) {
-      for (const p of [HUMAN, AI]) {
+      for (const p of [0, 1]) {
         const c = S.deck.pop();
         S.hands[p].push(c);
         ids.push(c.id);
@@ -531,25 +555,26 @@ async function newGame() {
 
   // Wer den niedrigsten Trumpf hat, beginnt
   const low = p => Math.min(...S.hands[p].filter(isTrump).map(c => c.rank), 99);
-  const lh = low(HUMAN), la = low(AI);
+  const l0 = low(0), l1 = low(1);
   let first;
-  if (lh === 99 && la === 99) first = Math.random() < 0.5 ? HUMAN : AI;
-  else first = lh < la ? HUMAN : AI;
+  if (l0 === 99 && l1 === 99) first = Math.random() < 0.5 ? 0 : 1;
+  else first = l0 < l1 ? 0 : 1;
   S.attacker = first;
   S.defender = 1 - first;
   S.phase = 'attack';
+  render();
   await sleep(200);
-  toast(first === HUMAN ? 'Du beginnst!' : 'Rivale beginnt!', 1200);
+  say(first, 'Du beginnst!', '{n} beginnt!', 1200);
   await sleep(900);
   busy = false;
   loop();
 }
 
 async function loop() {
-  if (S.over) return;
+  if (S.over || MODE === 'guest') return;
   const who = actor();
 
-  if (who === AI) {
+  if (isAISeat(who)) {
     busy = true;
     render();
     await sleep(S.phase === 'throwin' ? 550 : 750);
@@ -558,17 +583,18 @@ async function loop() {
     return loop();
   }
 
-  // Automatische Züge, wenn der Mensch nichts mehr legen kann
-  if (S.phase === 'attack' && S.table.length > 0 && !S.hands[HUMAN].some(canAdd)) {
+  // Automatische Züge, wenn der Spieler am Zug nichts mehr legen kann
+  const hand = S.hands[who];
+  if (S.phase === 'attack' && S.table.length > 0 && !hand.some(canAdd)) {
     busy = true;
     render();
     await sleep(700);
-    toast('Bito!');
+    say(null, 'Bito!');
     await endRound(false);
     busy = false;
     return loop();
   }
-  if (S.phase === 'throwin' && !S.hands[HUMAN].some(canAdd)) {
+  if (S.phase === 'throwin' && !hand.some(canAdd)) {
     busy = true;
     render();
     await sleep(500);
@@ -579,6 +605,7 @@ async function loop() {
 
   busy = false;
   render();
+  if (isRemoteSeat(who)) tryRemote();
 }
 
 async function playAttack(p, card) {
@@ -623,72 +650,106 @@ async function endRound(taken) {
   if (!taken) { S.attacker = def; S.defender = att; }
   if (checkGameOver()) return;
   S.phase = 'attack';
+  render();
   await sleep(150);
-  toast(S.attacker === HUMAN ? 'Dein Angriff!' : 'Rivale greift an!', 900);
+  say(S.attacker, 'Dein Angriff!', '{n} greift an!', 900);
   await sleep(400);
 }
 
 function checkGameOver() {
   if (S.deck.length > 0) return false;
-  const humanOut = S.hands[HUMAN].length === 0;
-  const aiOut = S.hands[AI].length === 0;
-  if (!humanOut && !aiOut) return false;
+  const out = [S.hands[0].length === 0, S.hands[1].length === 0];
+  if (!out[0] && !out[1]) return false;
 
   S.over = true;
   S.phase = 'idle';
   render();
-  let result;
-  if (humanOut && aiOut) result = 'draw';
-  else result = humanOut ? 'win' : 'lose';
-  saveStat(result);
-  setTimeout(() => showGameOver(result), 500);
+  if (MODE === 'host') send({ t: 'over', out });
+  finishGame(out);
   return true;
 }
 
-/* ---------- Eingaben ---------- */
-
-async function onCardTap(card, el) {
-  if (busy || S.over) return;
-  if (!S.hands[HUMAN].includes(card)) return;
-  if (actor() !== HUMAN) return;
-
-  if (!isPlayable(card)) {
-    el.classList.remove('shake');
-    void el.offsetWidth;
-    el.classList.add('shake');
-    if (navigator.vibrate) navigator.vibrate(30);
-    return;
-  }
-  busy = true;
-  if (S.phase === 'defend') await playDefend(card);
-  else await playAttack(HUMAN, card);
-  busy = false;
-  loop();
+function finishGame(out) {
+  let result;
+  if (out[ME] && out[OPP]) result = 'draw';
+  else result = out[ME] ? 'win' : 'lose';
+  saveStat(result);
+  setTimeout(() => showGameOver(result), 500);
 }
 
-async function onAction() {
+/* ---------- Züge (lokal oder vom Gast) ---------- */
+
+async function doCard(seat, card) {
+  if (busy || S.over || actor() !== seat) return false;
+  if (!S.hands[seat].includes(card) || !isPlayable(card, seat)) return false;
+  busy = true;
+  if (S.phase === 'defend') await playDefend(card);
+  else await playAttack(seat, card);
+  busy = false;
+  loop();
+  return true;
+}
+
+async function doAction(seat, act) {
+  if (busy || S.over || actor() !== seat) return false;
+  if (act === 'take' && S.phase === 'defend') {
+    busy = true;
+    S.phase = 'throwin';
+    render();
+    say(seat, 'Du nimmst auf', '{n} nimmt auf!');
+    await sleep(300);
+  } else if (act === 'bito' && S.phase === 'attack' && S.table.length > 0) {
+    busy = true;
+    say(null, 'Bito!');
+    await endRound(false);
+  } else if (act === 'done' && S.phase === 'throwin') {
+    busy = true;
+    await endRound(true);
+  } else {
+    return false;
+  }
+  busy = false;
+  loop();
+  return true;
+}
+
+function shake(el) {
+  el.classList.remove('shake');
+  void el.offsetWidth;
+  el.classList.add('shake');
+  if (navigator.vibrate) navigator.vibrate(30);
+}
+
+function onCardTap(card, el) {
+  if (busy || S.over) return;
+  if (!S.hands[ME].includes(card) || actor() !== ME) return;
+  if (!isPlayable(card)) return shake(el);
+  if (MODE === 'guest') {
+    busy = true;
+    render();
+    send({ t: 'card', id: card.id });
+  } else {
+    doCard(ME, card);
+  }
+}
+
+function onAction() {
   if (busy || S.over) return;
   const act = $('#action').dataset.act;
   if (!act) return;
-  busy = true;
-  if (act === 'take') {
-    S.phase = 'throwin';
-    toast('Du nimmst auf');
-    await sleep(300);
-  } else if (act === 'bito') {
-    toast('Bito!');
-    await endRound(false);
-  } else if (act === 'done') {
-    await endRound(true);
+  if (MODE === 'guest') {
+    busy = true;
+    render();
+    send({ t: 'act', act });
+  } else {
+    doAction(ME, act);
   }
-  busy = false;
-  loop();
 }
 
 /* ---------- Künstliche Intelligenz ---------- */
 
 async function aiTurn() {
-  const hand = S.hands[AI];
+  const hand = S.hands[OPP];
   const deckLeft = S.deck.length;
 
   if (S.phase === 'defend') {
@@ -701,7 +762,7 @@ async function aiTurn() {
       choice = null;
     }
     if (!choice) {
-      toast('Rivale nimmt auf!');
+      say(OPP, 'Du nimmst auf', '{n} nimmt auf!');
       S.phase = 'throwin';
       await sleep(400);
       return;
@@ -710,16 +771,16 @@ async function aiTurn() {
   }
 
   if (S.phase === 'attack') {
-    if (S.table.length === 0) return playAttack(AI, pickLead(hand));
+    if (S.table.length === 0) return playAttack(OPP, pickLead(hand));
     const c = pickAdd(hand);
-    if (c) return playAttack(AI, c);
-    toast('Bito!');
+    if (c) return playAttack(OPP, c);
+    say(null, 'Bito!');
     return endRound(false);
   }
 
   if (S.phase === 'throwin') {
     const c = pickAdd(hand);
-    if (c) return playAttack(AI, c);
+    if (c) return playAttack(OPP, c);
     return endRound(true);
   }
 }
@@ -770,23 +831,338 @@ function hideScreens() {
 
 function showGameOver(result) {
   const txt = {
-    win:  ['🏆', 'Gewonnen!', 'Du hast alle Karten losgeworden. Der Rivale ist der Durak!'],
+    win:  ['🏆', 'Gewonnen!', `Du hast alle Karten losgeworden. ${oppName} ist der Durak!`],
     lose: ['🤡', 'Du bist der Durak!', 'Du hattest am Ende noch Karten auf der Hand. Revanche?'],
     draw: ['🤝', 'Unentschieden', 'Beide sind gleichzeitig alle Karten losgeworden.'],
   }[result];
   $('#over-emoji').textContent = txt[0];
   $('#over-title').textContent = txt[1];
   $('#over-text').textContent = txt[2];
+  $('#btn-again').textContent = 'Nochmal spielen';
+  $('#btn-menu').classList.toggle('hidden', MODE === 'ai');
   $('#screen-over').classList.remove('hidden');
+}
+
+/* =========================================================
+ *  Online-Spiel (Peer-to-Peer über WebRTC mit PeerJS)
+ *
+ *  Der Gastgeber führt das komplette Spiel. Der Gast schickt nur
+ *  seine Züge und bekommt nach jeder Änderung den Spielstand zurück,
+ *  den er mit denselben Animationen darstellt.
+ * ========================================================= */
+
+const PEER_PREFIX = 'pokedurak-v1-';
+const PEERJS_URL = 'vendor/peerjs.min.js';   // PeerJS 1.5.5 (MIT)
+// ?local=1: Verbindung über BroadcastChannel zwischen zwei Tabs (zum Testen ohne Internet)
+const LOCAL_TEST = new URLSearchParams(location.search).has('local');
+// ?peerserver=host:port: eigenen PeerJS-Server statt des öffentlichen verwenden (zum Testen)
+const PEER_SERVER = new URLSearchParams(location.search).get('peerserver');
+function peerOptions() {
+  if (!PEER_SERVER) return {};
+  const [host, port] = PEER_SERVER.split(':');
+  return { host, port: +port || 9000, path: '/', secure: false };
+}
+
+let transport = null;       // { send(msg), close() }
+let peer = null;
+let pendingOrder = null;    // IDs neu gezogener Karten für die nächste Übertragung
+let pendingRemote = null;   // Zug des Gastes, der noch verarbeitet werden muss
+let lastSent = '';
+let guestQueue = Promise.resolve();
+let myName = loadName();
+
+function send(msg) {
+  if (transport) transport.send(msg);
+}
+
+function loadName() {
+  try { return localStorage.getItem('pokedurak-name') || ''; } catch { return ''; }
+}
+function saveName(n) {
+  try { localStorage.setItem('pokedurak-name', n); } catch { /* egal */ }
+}
+function currentName() {
+  const n = $('#player-name').value.trim().slice(0, 12);
+  if (n) { myName = n; saveName(n); }
+  return myName || 'Trainer';
+}
+
+// Spielstand für den Gast. Vom Nachziehstapel wird nur die Trumpfkarte übertragen.
+function serialize() {
+  return {
+    deck: { trump: S.deck.length ? S.deck[0].id : null, n: S.deck.length },
+    trump: S.trump,
+    hands: S.hands.map(h => h.map(c => c.id)),
+    table: S.table.map(p => [p.atk.id, p.def ? p.def.id : null]),
+    discard: S.discard.map(c => c.id),
+    attacker: S.attacker,
+    defender: S.defender,
+    phase: S.phase,
+    firstRound: S.firstRound,
+    over: S.over,
+  };
+}
+
+function applyState(st) {
+  const card = id => CARD_BY_ID.get(id);
+  S.trump = st.trump;
+  S.deck = st.deck.n ? [card(st.deck.trump), ...Array(st.deck.n - 1).fill(null)] : [];
+  S.hands = st.hands.map(h => h.map(card));
+  S.table = st.table.map(([a, d]) => ({ atk: card(a), def: d ? card(d) : null }));
+  S.discard = st.discard.map(card);
+  S.attacker = st.attacker;
+  S.defender = st.defender;
+  S.phase = st.phase;
+  S.firstRound = st.firstRound;
+  S.over = st.over;
+}
+
+function syncState() {
+  if (MODE !== 'host' || !transport) return;
+  const order = pendingOrder || [];
+  pendingOrder = null;
+  const st = JSON.stringify(serialize());
+  if (st === lastSent && !order.length) return;
+  lastSent = st;
+  send({ t: 'state', s: st, order });
+}
+
+/* ----- Gastgeber: Nachrichten vom Gast ----- */
+
+function onHostMessage(m) {
+  if (m.t === 'hello') {
+    oppName = String(m.name || 'Freund').slice(0, 12);
+    send({ t: 'hello', name: currentName() });
+    lastSent = '';
+    newGame();
+  } else if (m.t === 'card' || m.t === 'act') {
+    pendingRemote = m;
+    tryRemote();
+  } else if (m.t === 'again') {
+    if (S.over && !busy) newGame();
+  }
+}
+
+function tryRemote() {
+  if (!pendingRemote || busy || S.over || S.phase === 'idle') return;
+  const m = pendingRemote;
+  pendingRemote = null;
+  let ok = false;
+  if (actor() === OPP) {
+    if (m.t === 'card') {
+      const c = CARD_BY_ID.get(m.id);
+      ok = !!c && S.hands[OPP].includes(c) && isPlayable(c, OPP);
+      if (ok) doCard(OPP, c);
+    } else {
+      ok = true;
+      doAction(OPP, m.act).then(done => { if (!done) send({ t: 'nack' }); });
+    }
+  }
+  if (!ok) send({ t: 'nack' });
+}
+
+/* ----- Gast: Nachrichten vom Gastgeber (streng der Reihe nach) ----- */
+
+function onGuestMessage(m) {
+  guestQueue = guestQueue.then(() => guestHandle(m)).catch(err => console.error(err));
+}
+
+async function guestHandle(m) {
+  switch (m.t) {
+    case 'hello':
+      oppName = String(m.name || 'Freund').slice(0, 12);
+      hideScreens();
+      $('#status').textContent = `Verbunden mit ${oppName} – das Spiel startet gleich…`;
+      break;
+    case 'new':
+      elCache = new Map();
+      hideScreens();
+      computeSizes();
+      break;
+    case 'state': {
+      busy = true;
+      const st = JSON.parse(m.s);
+      await animateChange(() => { applyState(st); return m.order; }, { stagger: 80 });
+      busy = false;
+      render();
+      break;
+    }
+    case 'say':
+      showSay(m.seat, m.mine, m.theirs, m.ms);
+      break;
+    case 'over':
+      finishGame(m.out);
+      break;
+    case 'nack':
+      busy = false;
+      render();
+      break;
+  }
+}
+
+/* ----- Verbindungsaufbau ----- */
+
+function useTransport(t, role) {
+  transport = t;
+  MODE = role;
+  if (role === 'host') { ME = 0; OPP = 1; } else { ME = 1; OPP = 0; }
+}
+
+function onDisconnect() {
+  if (!transport) return;
+  transport = null;
+  busy = true;
+  $('#over-emoji').textContent = '📡';
+  $('#over-title').textContent = 'Verbindung getrennt';
+  $('#over-text').textContent = `Die Verbindung zu ${oppName} ist abgebrochen.`;
+  $('#btn-again').textContent = 'Zum Menü';
+  $('#btn-menu').classList.add('hidden');
+  hideScreens();
+  $('#screen-over').classList.remove('hidden');
+}
+
+function backToMenu() {
+  location.href = location.pathname + (LOCAL_TEST ? '?local=1' : '');
+}
+
+function makeCode() {
+  const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let c = '';
+  for (let i = 0; i < 5; i++) c += abc[Math.floor(Math.random() * abc.length)];
+  return c;
+}
+
+function onlineMsg(text) { $('#online-msg').textContent = text; }
+
+function loadPeerJS() {
+  if (window.Peer) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = PEERJS_URL;
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('PeerJS konnte nicht geladen werden'));
+    document.head.appendChild(s);
+  });
+}
+
+function peerTransport(conn, onMessage) {
+  conn.on('data', onMessage);
+  conn.on('close', onDisconnect);
+  conn.on('error', onDisconnect);
+  return { send: m => conn.send(m), close: () => conn.close() };
+}
+
+function localTransport(code, role, onMessage) {
+  const ch = new BroadcastChannel('pokedurak-' + code);
+  ch.onmessage = e => { if (e.data.from !== role) onMessage(e.data.m); };
+  return { send: m => ch.postMessage({ from: role, m }), close: () => ch.close() };
+}
+
+async function hostGame() {
+  currentName();
+  onlineMsg('');
+  $('#online-menu').classList.add('hidden');
+  $('#online-wait').classList.remove('hidden');
+  $('#room-code').textContent = '…';
+  const code = makeCode();
+
+  if (LOCAL_TEST) {
+    $('#room-code').textContent = code;
+    useTransport(localTransport(code, 'host', onHostMessage), 'host');
+    return;
+  }
+  try { await loadPeerJS(); } catch (e) { return onlineMsg(e.message + '. Bist du online?'); }
+  peer = new Peer(PEER_PREFIX + code, peerOptions());
+  peer.on('open', () => { $('#room-code').textContent = code; });
+  peer.on('connection', conn => {
+    if (transport) { conn.close(); return; }   // nur ein Mitspieler
+    conn.on('open', () => {
+      $('#online-status').textContent = 'Mitspieler verbunden!';
+      useTransport(peerTransport(conn, onHostMessage), 'host');
+    });
+  });
+  peer.on('error', e => {
+    if (e.type === 'unavailable-id') { peer.destroy(); hostGame(); return; }
+    if (!transport) onlineMsg('Verbindungsfehler: ' + e.type);
+  });
+}
+
+async function joinGame() {
+  const code = $('#join-code').value.trim().toUpperCase();
+  if (code.length < 4) return onlineMsg('Bitte den Spielcode eingeben.');
+  currentName();
+  onlineMsg('Verbinde…');
+  $('#btn-join').disabled = true;
+
+  const hello = () => send({ t: 'hello', name: currentName() });
+  if (LOCAL_TEST) {
+    useTransport(localTransport(code, 'guest', onGuestMessage), 'guest');
+    hello();
+    return;
+  }
+  try { await loadPeerJS(); } catch (e) {
+    $('#btn-join').disabled = false;
+    return onlineMsg(e.message + '. Bist du online?');
+  }
+  peer = new Peer(peerOptions());
+  const timer = setTimeout(() => {
+    if (!transport) {
+      onlineMsg('Keine Verbindung möglich. Prüfe den Code oder versucht es in einem anderen Netz (z. B. WLAN statt Mobilfunk).');
+      $('#btn-join').disabled = false;
+    }
+  }, 20000);
+  peer.on('open', () => {
+    const conn = peer.connect(PEER_PREFIX + code, { reliable: true, serialization: 'json' });
+    conn.on('open', () => {
+      clearTimeout(timer);
+      useTransport(peerTransport(conn, onGuestMessage), 'guest');
+      onlineMsg('Verbunden!');
+      hello();
+    });
+  });
+  peer.on('error', e => {
+    if (transport) return;
+    clearTimeout(timer);
+    $('#btn-join').disabled = false;
+    onlineMsg(e.type === 'peer-unavailable'
+      ? 'Spiel nicht gefunden – stimmt der Code?'
+      : 'Verbindungsfehler: ' + e.type);
+  });
+}
+
+async function shareInvite() {
+  const code = $('#room-code').textContent;
+  const extra = LOCAL_TEST ? '&local=1' : PEER_SERVER ? '&peerserver=' + PEER_SERVER : '';
+  const url = `${location.origin}${location.pathname}?join=${code}${extra}`;
+  const text = `Spiel mit mir PokéDurak! Code: ${code}`;
+  try {
+    if (navigator.share) { await navigator.share({ title: 'PokéDurak', text, url }); return; }
+    await navigator.clipboard.writeText(`${text}\n${url}`);
+    $('#online-status').textContent = 'Link kopiert! Warte auf Mitspieler…';
+  } catch { /* abgebrochen */ }
 }
 
 /* ---------- Start ---------- */
 
 $('#action').addEventListener('click', onAction);
-$('#btn-start').addEventListener('click', newGame);
-$('#btn-again').addEventListener('click', newGame);
+$('#btn-start').addEventListener('click', () => { currentName(); newGame(); });
+$('#btn-again').addEventListener('click', () => {
+  if (MODE !== 'ai' && !transport) return backToMenu();
+  if (MODE === 'guest') {
+    send({ t: 'again' });
+    $('#btn-again').textContent = `Warte auf ${oppName}…`;
+    return;
+  }
+  newGame();
+});
+$('#btn-menu').addEventListener('click', backToMenu);
 $('#btn-new').addEventListener('click', () => {
   if (busy) return;
+  if (MODE === 'guest') {
+    if (S.over) send({ t: 'again' });
+    else toast(`Nur ${oppName} kann neu starten`);
+    return;
+  }
   if (S.over || S.phase === 'idle' || confirm('Neues Spiel starten? Das laufende Spiel geht verloren.')) newGame();
 });
 let rulesReturn = null;
@@ -802,11 +1178,32 @@ $('#btn-rules-close').addEventListener('click', () => {
   if (rulesReturn) rulesReturn.classList.remove('hidden');
 });
 
+$('#btn-online').addEventListener('click', () => {
+  currentName();
+  $('#screen-start').classList.add('hidden');
+  $('#screen-online').classList.remove('hidden');
+});
+$('#btn-online-back').addEventListener('click', backToMenu);
+$('#btn-host').addEventListener('click', hostGame);
+$('#btn-join').addEventListener('click', joinGame);
+$('#btn-share').addEventListener('click', shareInvite);
+$('#join-code').addEventListener('keydown', e => { if (e.key === 'Enter') joinGame(); });
+
 window.addEventListener('resize', () => {
   computeSizes();
   if (!busy) render();
 });
 
+$('#player-name').value = myName;
 computeSizes();
 showStats();
 render();
+
+// Einladungslink ?join=CODE öffnet direkt den Beitreten-Dialog
+const joinParam = new URLSearchParams(location.search).get('join');
+if (joinParam) {
+  $('#screen-start').classList.add('hidden');
+  $('#screen-online').classList.remove('hidden');
+  $('#join-code').value = joinParam.toUpperCase();
+  onlineMsg(myName ? '' : 'Gib oben deinen Namen ein und tippe auf „Beitreten“.');
+}

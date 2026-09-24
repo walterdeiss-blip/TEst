@@ -23,7 +23,7 @@
 
     <section id="opp">
       <div id="opp-hand"></div>
-      <div id="opp-label">Rivale <span id="opp-count">0</span></div>
+      <div id="opp-label"><span id="opp-name">Rivale</span> <span id="opp-count">0</span></div>
     </section>
 
     <section id="field">
@@ -51,8 +51,34 @@
       <div class="logo"><span class="logo-ball"></span>Poké<b>Durak</b></div>
       <p class="sub">Das russische Kartenspiel – mit den Pokémon der ersten Generation</p>
       <div id="stats"></div>
-      <button class="big" id="btn-start">Spiel starten</button>
+      <button class="big" id="btn-start">Gegen den Computer</button>
+      <button class="big blue" id="btn-online">Online mit Freunden</button>
       <button class="big ghost" id="btn-start-rules">Regeln</button>
+    </div>
+  </div>
+
+  <div id="screen-online" class="screen hidden">
+    <div class="panel">
+      <h2>Online spielen</h2>
+      <label class="field">Dein Name
+        <input id="player-name" maxlength="12" placeholder="z. B. Ash" autocomplete="nickname">
+      </label>
+      <div id="online-menu">
+        <button class="big" id="btn-host">Neues Spiel erstellen</button>
+        <div class="or">oder mit Code beitreten</div>
+        <div class="join-row">
+          <input id="join-code" maxlength="5" placeholder="CODE" autocapitalize="characters" autocomplete="off" spellcheck="false">
+          <button class="big" id="btn-join">Beitreten</button>
+        </div>
+      </div>
+      <div id="online-wait" class="hidden">
+        <p>Dein Spielcode:</p>
+        <div id="room-code" class="code">…</div>
+        <button class="big blue" id="btn-share">Einladung teilen</button>
+        <p class="hint" id="online-status">Warte auf Mitspieler…</p>
+      </div>
+      <p class="hint" id="online-msg"></p>
+      <button class="big ghost" id="btn-online-back">Zurück</button>
     </div>
   </div>
 
@@ -62,6 +88,7 @@
       <h2 id="over-title"></h2>
       <p id="over-text"></p>
       <button class="big" id="btn-again">Nochmal spielen</button>
+      <button class="big ghost hidden" id="btn-menu">Zum Menü</button>
     </div>
   </div>
 
@@ -82,6 +109,7 @@
         <li>Kann oder will der Verteidiger nicht schlagen, <b>nimmt</b> er alle Karten auf. Der Angreifer darf vorher noch passende Karten dazugeben. Dann greift der Angreifer erneut an.</li>
         <li>Nach jeder Runde ziehen alle wieder auf 6 Karten auf (zuerst der Angreifer).</li>
       </ul>
+      <p><b>Online:</b> Über „Online mit Freunden“ erstellst du ein Spiel und schickst deinem Freund den Code oder den Einladungslink.</p>
       <p><b>Bedienung:</b> Tippe eine leuchtende Karte in deiner Hand an, um sie zu spielen. Mit dem Knopf rechts sagst du <i>Bito</i>, <i>Nehmen</i> oder <i>Fertig</i>.</p>
       <button class="big" id="btn-rules-close">Verstanden</button>
     </div>

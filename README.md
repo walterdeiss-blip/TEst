@@ -13,6 +13,19 @@ Es ist eine reine Web-App ohne Build-Schritt:
   *Settings → Pages → Branch auswählen*) und die Seite auf dem Handy öffnen.
   Über „Zum Startbildschirm hinzufügen“ läuft das Spiel dann wie eine App im Vollbild.
 
+## Online mit Freunden spielen
+
+1. Beide öffnen die Seite (am besten über GitHub Pages, siehe oben).
+2. **Online mit Freunden → Neues Spiel erstellen**: Es erscheint ein 5-stelliger Spielcode.
+   Mit **Einladung teilen** lässt sich ein Link per WhatsApp & Co. verschicken.
+3. Der Freund öffnet den Link (oder tippt den Code bei **Beitreten** ein) – das Spiel startet sofort.
+
+Die Handys verbinden sich direkt miteinander (Peer-to-Peer über WebRTC mit
+[PeerJS](https://peerjs.com/)); zum Verbindungsaufbau wird der kostenlose öffentliche PeerJS-Server genutzt,
+ein eigener Server ist nicht nötig. Der Spieler, der das Spiel erstellt, ist Gastgeber: Auf seinem Gerät läuft
+die Spiellogik, der Gast schickt seine Züge und bekommt den Spielstand zurück.
+Online wird zu zweit gespielt (1 gegen 1).
+
 Die Pokémon-Bilder werden aus dem [PokéAPI-Sprites-Repository](https://github.com/PokeAPI/sprites)
 geladen. Ohne Internet zeigen die Karten stattdessen das Typ-Symbol.
 
@@ -49,7 +62,8 @@ geladen. Ohne Internet zeigen die Karten stattdessen das Typ-Symbol.
 
 - `index.html` – Aufbau der Seite
 - `style.css` – Spielfeld, Kartendesign und Animationen
-- `game.js` – Spiellogik, Computergegner und Kartenanimationen
+- `game.js` – Spiellogik, Computergegner, Kartenanimationen und Online-Modus
+- `vendor/peerjs.min.js` – PeerJS 1.5.5 (MIT-Lizenz, siehe `vendor/peerjs-LICENSE`)
 
 *Fan-Projekt ohne kommerziellen Zweck. Pokémon und alle zugehörigen Namen sind Marken von
 Nintendo, Creatures Inc. und GAME FREAK inc.*
