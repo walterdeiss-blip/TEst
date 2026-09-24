@@ -38,6 +38,12 @@
       </div>
       <div id="table"></div>
       <div id="toast"></div>
+      <button id="btn-catch" class="hidden" aria-label="Schummler erwischen">🕵️ Erwischt!</button>
+      <div id="choice" class="hidden">
+        <button data-c="beat">⚔️ Schlagen</button>
+        <button data-c="transfer">➡️ Schieben</button>
+        <button data-c="cancel" class="x">✕</button>
+      </div>
     </section>
 
     <section id="controls">
@@ -65,6 +71,20 @@
     </div>
   </div>
 
+  <div id="screen-setup" class="screen hidden">
+    <div class="panel">
+      <h2>Gegen den Computer</h2>
+      <p class="label">Wie viele Gegner?</p>
+      <div id="opp-count-select" class="seg">
+        <button data-n="1">1</button><button data-n="2">2</button><button data-n="3">3</button><button data-n="4">4</button><button data-n="5">5</button>
+      </div>
+      <label class="toggle"><input type="checkbox" id="opt-transfer"><span>➡️ <b>Schieben</b> erlaubt<small>Verteidiger gibt den Angriff mit einer Karte gleichen Werts weiter</small></span></label>
+      <label class="toggle"><input type="checkbox" id="opt-cheat"><span>🤫 <b>Schummeln</b> erlaubt<small>Falsche Karten legen – wer erwischt wird, bekommt eine Strafkarte</small></span></label>
+      <button class="big" id="btn-setup-start">Los geht's!</button>
+      <button class="big ghost" id="btn-setup-back">Zurück</button>
+    </div>
+  </div>
+
   <div id="screen-online" class="screen hidden">
     <div class="panel">
       <h2>Online spielen</h2>
@@ -80,10 +100,24 @@
         </div>
       </div>
       <div id="online-wait" class="hidden">
-        <p>Dein Spielcode:</p>
-        <div id="room-code" class="code">…</div>
-        <button class="big blue" id="btn-share">Einladung teilen</button>
+        <div class="host-only">
+          <p>Dein Spielcode:</p>
+          <div id="room-code" class="code">…</div>
+          <button class="big blue" id="btn-share">Einladung teilen</button>
+        </div>
         <p class="hint" id="online-status">Warte auf Mitspieler…</p>
+        <p class="label" id="lobby-count"></p>
+        <ul id="lobby-list"></ul>
+        <p class="hint" id="guest-rules"></p>
+        <div class="host-only">
+          <div class="ai-row">
+            <button class="big ghost" id="btn-add-ai">+ Computer</button>
+            <button class="big ghost" id="btn-remove-ai">– Computer</button>
+          </div>
+          <label class="toggle"><input type="checkbox" id="host-transfer"><span>➡️ <b>Schieben</b> erlaubt</span></label>
+          <label class="toggle"><input type="checkbox" id="host-cheat"><span>🤫 <b>Schummeln</b> erlaubt</span></label>
+          <button class="big" id="btn-host-start" disabled>Spiel starten</button>
+        </div>
       </div>
       <p class="hint" id="online-msg"></p>
       <button class="big ghost" id="btn-online-back">Zurück</button>
@@ -95,6 +129,7 @@
       <div id="over-emoji"></div>
       <h2 id="over-title"></h2>
       <p id="over-text"></p>
+      <ol id="over-ranking"></ol>
       <button class="big" id="btn-again">Nochmal spielen</button>
       <button class="big ghost hidden" id="btn-menu">Zum Menü</button>
     </div>
@@ -117,7 +152,10 @@
         <li>Kann oder will der Verteidiger nicht schlagen, sagt er <b>Bljat</b> und nimmt alle Karten auf. Der Angreifer darf vorher noch passende Karten dazugeben. Dann greift der Angreifer erneut an.</li>
         <li>Nach jeder Runde ziehen alle wieder auf 6 Karten auf (zuerst der Angreifer).</li>
       </ul>
-      <p><b>Online:</b> Über „Online mit Freunden“ erstellst du ein Spiel und schickst deinem Freund den Code oder den Einladungslink.</p>
+      <p><b>Mehrere Spieler (bis 6):</b> Angegriffen wird immer der linke Nachbar. Nachlegen dürfen alle außer dem Verteidiger – zuerst der Angreifer, dann die anderen der Reihe nach. Wer bei leerem Stapel keine Karten mehr hat, ist raus. Der Letzte ist der Durak.</p>
+      <p><b>➡️ Schieben (wenn eingeschaltet):</b> Solange noch nichts geschlagen ist, darf der Verteidiger eine Karte <b>gleichen Werts</b> dazulegen und den Angriff an den nächsten Spieler weitergeben – wenn der genug Karten hat.</p>
+      <p><b>🤫 Schummeln (wenn eingeschaltet):</b> Du darfst auch falsche Karten legen (nicht passender Wert, zu niedrige Karte). Alle anderen können mit <b>🕵️ Erwischt!</b> petzen: Wurde geschummelt, geht die Karte zurück und der Schummler bekommt eine Strafkarte. War alles korrekt, bekommt der Petzer die Strafkarte. Die Computer-Gegner schummeln und petzen auch!</p>
+      <p><b>Online:</b> Über „Online mit Freunden“ erstellst du ein Spiel, schickst den Code oder Link an deine Freunde und kannst Computer-Spieler dazunehmen.</p>
       <p><b>Bedienung:</b> Tippe eine leuchtende Karte in deiner Hand an, um sie zu spielen. Mit dem Knopf rechts sagst du <i>Dawai</i>, <i>Bljat</i> oder <i>Fertig</i>.</p>
       <button class="big" id="btn-rules-close">Verstanden</button>
     </div>

@@ -23,23 +23,25 @@ Zum Ausprobieren am Computer genügt es auch, `index.html` im Browser zu öffnen
 
 ## Online mit Freunden spielen
 
-1. Beide öffnen die Seite (am besten über GitHub Pages, siehe oben).
+1. Alle öffnen die Seite (am besten über GitHub Pages, siehe oben).
 2. **Online mit Freunden → Neues Spiel erstellen**: Es erscheint ein 5-stelliger Spielcode.
    Mit **Einladung teilen** lässt sich ein Link per WhatsApp & Co. verschicken.
-3. Der Freund öffnet den Link (oder tippt den Code bei **Beitreten** ein) – das Spiel startet sofort.
+3. Die Freunde öffnen den Link (oder tippen den Code bei **Beitreten** ein) und erscheinen in der Lobby.
+4. Der Gastgeber kann Computer-Spieler dazunehmen, Schieben/Schummeln einschalten und startet das Spiel.
 
 Die Handys verbinden sich direkt miteinander (Peer-to-Peer über WebRTC mit
 [PeerJS](https://peerjs.com/)); zum Verbindungsaufbau wird der kostenlose öffentliche PeerJS-Server genutzt,
 ein eigener Server ist nicht nötig. Der Spieler, der das Spiel erstellt, ist Gastgeber: Auf seinem Gerät läuft
 die Spiellogik, der Gast schickt seine Züge und bekommt den Spielstand zurück.
-Online wird zu zweit gespielt (1 gegen 1).
+Es spielen 2 bis 6 Spieler; verlässt jemand das Spiel, übernimmt ein Computer seinen Platz.
 
 ## Russischer Stil & Musik
 
 Gespielt wird auf einer roten Tischdecke mit Goldrand und Stickerei-Borte auf einem Holztisch.
-Im Hintergrund läuft das russische Volkslied **„Korobeiniki“** (19. Jh., gemeinfrei) im
-Balalaika-Stil – live im Browser erzeugt, ohne Audiodateien – und wird mit jeder Wiederholung
-schneller. Der 🎵-Knopf oben links schaltet die Musik aus und wieder an (wird gespeichert).
+Im Hintergrund läuft **„Kalinka“** (russisches Volkslied, Iwan Larionow 1860, gemeinfrei) im Stil
+der alten Pokémon-Game-Boy-Spiele: Rechteck-Melodie, Akkord-Arpeggios, 8-Bit-Bass und -Schlagzeug.
+Nach einer ruhigen Strophe wird der Refrain – wie in Russland üblich – mit jeder Wiederholung
+schneller. Alles wird live im Browser erzeugt, ohne Audiodateien. Der 🎵-Knopf oben links schaltet die Musik aus und wieder an (wird gespeichert).
 Wer **Bljat** sagt und aufnehmen muss, wird mit einem kurzen Schrei oder einem Spucken
 begleitet (abwechselnd zufällig, ebenfalls live erzeugt).
 
@@ -62,7 +64,7 @@ geladen. Ohne Internet zeigen die Karten stattdessen das Typ-Symbol.
 | K    | Arkani   | Garados   | Nidoking   | Raichu    |
 | A    | Glurak   | Turtok    | Bisaflor   | Zapdos    |
 
-## Regeln (Podkidnoy Durak, 2 Spieler)
+## Regeln (Podkidnoy Durak, 2–6 Spieler)
 
 - Jeder erhält 6 Karten. Die unterste Stapelkarte liegt offen und bestimmt den **Trumpf**.
 - Wer den niedrigsten Trumpf hat, greift zuerst an.
@@ -72,8 +74,19 @@ geladen. Ohne Internet zeigen die Karten stattdessen das Typ-Symbol.
 - **Dawai**: alles geschlagen → Karten auf den Ablagestapel, der Verteidiger greift als Nächstes an.
 - **Bljat**: der Verteidiger nimmt alle Karten auf (der Angreifer darf vorher noch nachlegen)
   und setzt aus – der Angreifer greift erneut an.
-- Nach jeder Runde wird auf 6 Karten aufgefüllt (Angreifer zuerst).
-- Ist der Stapel leer, gewinnt, wer zuerst keine Karten mehr hat. Wer übrig bleibt, ist der **Durak**.
+- Angegriffen wird immer der nächste Spieler. Nachlegen dürfen alle außer dem Verteidiger –
+  zuerst der Angreifer, dann die anderen der Reihe nach.
+- Nach jeder Runde wird auf 6 Karten aufgefüllt (Angreifer zuerst, Verteidiger zuletzt).
+- Wer bei leerem Stapel keine Karten mehr hat, ist raus. Wer als Letzter übrig bleibt, ist der **Durak**.
+
+### Zusatzregeln (im Menü einschaltbar)
+
+- **➡️ Schieben (Perevodnoy):** Solange noch nichts geschlagen ist, darf der Verteidiger eine Karte
+  gleichen Werts dazulegen und den ganzen Angriff an den nächsten Spieler weitergeben
+  (wenn dieser genug Karten hat).
+- **🤫 Schummeln:** Man darf auch regelwidrige Karten legen. Mit **🕵️ Erwischt!** kann jeder petzen:
+  Wurde geschummelt, geht die Karte zurück und der Schummler bekommt eine Strafkarte –
+  war alles korrekt, bekommt der Petzer die Strafkarte. Die Computer schummeln und petzen auch.
 
 ## Dateien
 

@@ -1,128 +1,202 @@
 'use strict';
 
 /* =========================================================
- *  Hintergrundmusik: „Korobeiniki“ (russisches Volkslied, 19. Jh.,
- *  gemeinfrei) im Balalaika-Stil – komplett mit Web Audio erzeugt,
- *  ohne Audiodateien. Mit jeder Wiederholung wird es etwas schneller,
- *  wie bei einem russischen Tanz.
+ *  Hintergrundmusik: „Kalinka“ (russisches Volkslied, Iwan Larionow 1860,
+ *  gemeinfrei) im Stil der alten Pokémon-Game-Boy-Spiele: Rechteck-Melodie,
+ *  schnelle Akkord-Arpeggios, pumpender Bass und 8-Bit-Schlagzeug.
+ *  Alles wird live mit Web Audio erzeugt. Wie in Russland üblich wird der
+ *  Refrain mit jeder Wiederholung schneller.
  * ========================================================= */
 
 const Music = (() => {
   const STORE_KEY = 'pokedurak-music';
-  const BASE_BPM = 132;
-  const LOOK_AHEAD = 0.3;    // Sekunden, die im Voraus eingeplant werden
+  const LOOK_AHEAD = 0.3;
 
-  const SEMI = { C: -9, 'C#': -8, D: -7, 'D#': -6, E: -5, F: -4, 'F#': -3, G: -2, 'G#': -1, A: 0, 'A#': 1, B: 2 };
+  const SEMI = { C: -9, 'C#': -8, Db: -8, D: -7, 'D#': -6, Eb: -6, E: -5, F: -4, 'F#': -3, G: -2, 'G#': -1, A: 0, Bb: 1, B: 2 };
   function freq(note) {
-    const m = /^([A-G]#?)(\d)$/.exec(note);
+    const m = /^([A-G](?:#|b)?)(\d)$/.exec(note);
     return 440 * Math.pow(2, (SEMI[m[1]] + (Number(m[2]) - 4) * 12) / 12);
   }
 
-  // Melodie: [Note, Dauer in Schlägen], null = Pause. 8 Takte à 4 Schläge.
-  const MELODY = [
-    ['E5', 1], ['B4', .5], ['C5', .5], ['D5', 1], ['C5', .5], ['B4', .5],
-    ['A4', 1], ['A4', .5], ['C5', .5], ['E5', 1], ['D5', .5], ['C5', .5],
-    ['B4', 1.5], ['C5', .5], ['D5', 1], ['E5', 1],
-    ['C5', 1], ['A4', 1], ['A4', 1], [null, 1],
-    [null, .5], ['D5', 1], ['F5', .5], ['A5', 1], ['G5', .5], ['F5', .5],
-    ['E5', 1.5], ['C5', .5], ['E5', 1], ['D5', .5], ['C5', .5],
-    ['B4', 1], ['B4', .5], ['C5', .5], ['D5', 1], ['E5', 1],
-    ['C5', 1], ['A4', 1], ['A4', 1], [null, 1],
+  const CH = {
+    Dm: ['D3', 'D4', 'F4', 'A4'], A7: ['A2', 'A3', 'C#4', 'E4', 'G4'], F: ['F2', 'F3', 'A3', 'C4'],
+    C7: ['C3', 'C4', 'E4', 'Bb4'], Bb: ['Bb2', 'Bb3', 'D4', 'F4'], G7: ['G2', 'G3', 'B3', 'F4'],
+    C: ['C3', 'C4', 'E4', 'G4'], Gm: ['G2', 'G3', 'Bb3', 'D4'],
+  };
+
+  // Takte im 2/4-Takt: [Melodie [[Note, Schläge], …], Akkord(e) je Schlag]
+  const VERSE = [
+    [[['A4', .5], ['C5', .5], ['Bb4', .5], ['A4', .25], ['G4', .25]], ['F', 'C7']],
+    [[['F4', 1], ['C4', 1]], ['F', 'F']],
+    [[['A4', .5], ['C5', .5], ['Bb4', .5], ['A4', .25], ['G4', .25]], ['F', 'C7']],
+    [[['F4', 1], ['C4', 1]], ['F', 'F']],
+    [[['D4', 1], ['D4', .5], ['E4', .5]], ['Bb', 'Bb']],
+    [[['G4', .5], ['F4', .5], ['E4', .5], ['D4', .5]], ['G7', 'G7']],
+    [[['C4', 1], ['C4', 1]], ['C', 'C']],
+    [[['C4', 1], ['C5', 1]], ['C', 'C']],
+    [[['A4', .5], ['C5', .5], ['G4', .5], ['A4', .5]], ['F', 'C7']],
+    [[['F4', 1], ['C4', 1]], ['F', 'F']],
+    [[['A4', .5], ['C5', .5], ['G4', .5], ['A4', .5]], ['F', 'C7']],
+    [[['F4', 1], ['C4', 1]], ['F', 'F']],
+    [[['D4', 1], ['D4', .5], ['E4', .5]], ['Bb', 'Bb']],
+    [[['G4', .5], ['F4', .5], ['E4', .5], ['D4', .5]], ['G7', 'G7']],
+    [[['C5', 1], ['Bb4', 1]], ['C', 'Gm']],
+    [[['A4', 2]], ['A7', 'A7']],          // zugleich Auftakt „Ka-“ zum Refrain
   ];
-  // Begleitung je Takt: [Grundton, Quinte, Akkord]  (Am Am E Am | Dm C E Am)
-  const HARMONY = [
-    ['A2', 'E2', ['A3', 'C4', 'E4']],
-    ['A2', 'E2', ['A3', 'C4', 'E4']],
-    ['E2', 'B2', ['G#3', 'B3', 'E4']],
-    ['A2', 'E2', ['A3', 'C4', 'E4']],
-    ['D2', 'A2', ['D4', 'F4', 'A3']],
-    ['C3', 'G2', ['C4', 'E4', 'G3']],
-    ['E2', 'B2', ['G#3', 'B3', 'E4']],
-    ['A2', 'E2', ['A3', 'C4', 'E4']],
+  // Refrain: „…lin-ka, ka-lin-ka, ka-lin-ka mo-ja! W sadu jagoda malinka, malinka moja!“
+  const chorus = pickup => [
+    [[['G4', 1], ['E4', .5], ['F4', .5]], ['A7', 'A7']],
+    [[['G4', 1], ['E4', .5], ['F4', .5]], ['A7', 'A7']],
+    [[['G4', 1], ['F4', .5], ['E4', .5]], ['A7', 'A7']],
+    [[['D4', 1], ['A4', .5], ['A4', .5]], ['Dm', 'Dm']],
+    [[['G4', .75], ['F4', .25], ['E4', .5], ['F4', .5]], ['A7', 'A7']],
+    [[['G4', 1], ['E4', .5], ['F4', .5]], ['A7', 'A7']],
+    [[['G4', 1], ['F4', .5], ['E4', .5]], ['A7', 'A7']],
+    [pickup ? [['D4', 1], ['A4', 1]] : [['D4', 2]], ['Dm', 'Dm']],
+  ];
+  // Eigenes kurzes 8-Bit-Intro (aufsteigende Arpeggios), endet mit dem Auftakt
+  const INTRO = [
+    [[['D5', .25], ['F5', .25], ['A5', .25], ['D6', .25], ['A5', .25], ['F5', .25], ['D5', .25], ['F5', .25]], ['Dm', 'Dm']],
+    [[['D5', .25], ['F5', .25], ['A5', .25], ['D6', .25], ['A5', .25], ['F5', .25], ['D5', .25], ['F5', .25]], ['Dm', 'Dm']],
+    [[['C#5', .25], ['E5', .25], ['G5', .25], ['A5', .25], ['G5', .25], ['E5', .25], ['C#5', .25], ['E5', .25]], ['A7', 'A7']],
+    [[['D5', .5], ['D5', .5], [null, .5], ['A4', .5]], ['Dm', 'Dm']],
   ];
 
-  // Alle Ereignisse eines Durchlaufs (Melodie zweimal: einmal normal, einmal eine Oktave höher gespielt)
-  const EVENTS = [];
-  const BARS_PER_PASS = 8;
-  for (let pass = 0; pass < 2; pass++) {
-    const off = pass * BARS_PER_PASS * 4;
-    let t = 0;
-    for (const [n, d] of MELODY) {
-      if (n) EVENTS.push({ t: off + t, type: 'mel', note: n, dur: d, oct: pass });
-      t += d;
-    }
-    HARMONY.forEach(([root, fifth, chord], bar) => {
-      const b = off + bar * 4;
-      EVENTS.push({ t: b, type: 'bass', note: root });
-      EVENTS.push({ t: b + 1, type: 'chord', notes: chord });
-      EVENTS.push({ t: b + 2, type: 'bass', note: fifth });
-      EVENTS.push({ t: b + 3, type: 'chord', notes: chord });
+  function section(bars, bpm, style) {
+    const ev = [];
+    bars.forEach(([mel, chords], b) => {
+      const t0 = b * 2;
+      let t = t0;
+      for (const [n, d] of mel) {
+        if (n) ev.push({ t, type: 'lead', note: n, dur: d });
+        t += d;
+      }
+      chords.forEach((c, beat) => {
+        const tb = t0 + beat;
+        const ch = CH[c];
+        ev.push({ t: tb, type: 'bass', note: ch[0], dur: .5 });
+        ev.push({ t: tb + .5, type: 'bass', note: ch[1], dur: .5 });
+        ev.push({ t: tb, type: 'arp', notes: ch.slice(1), dur: 1 });
+        if (style !== 'soft' || beat === 0) ev.push({ t: tb, type: beat === 0 ? 'kick' : 'snare' });
+        ev.push({ t: tb + .5, type: 'hat' });
+        if (style === 'hot') { ev.push({ t: tb + .25, type: 'hat', soft: true }); ev.push({ t: tb + .75, type: 'hat', soft: true }); }
+      });
     });
-  }
-  EVENTS.sort((a, b) => a.t - b.t);
-  const LOOP_BEATS = 2 * BARS_PER_PASS * 4;
-
-  let ctx = null, master = null, timer = null;
-  let playing = false, loopStart = 0, idx = 0, loop = 0, bpm = BASE_BPM;
-
-  /* ----- Instrumente ----- */
-
-  // Gezupfte Saite (Balalaika): Sägezahn + Oktave durch einen sich schließenden Tiefpass
-  function pluck(time, f, vol, decay, bright = 3500) {
-    const g = ctx.createGain();
-    const lp = ctx.createBiquadFilter();
-    lp.type = 'lowpass';
-    lp.frequency.setValueAtTime(bright, time);
-    lp.frequency.exponentialRampToValueAtTime(Math.max(f * 1.5, 300), time + decay);
-    g.gain.setValueAtTime(0.0001, time);
-    g.gain.exponentialRampToValueAtTime(vol, time + 0.004);
-    g.gain.exponentialRampToValueAtTime(0.0001, time + decay);
-    const o1 = ctx.createOscillator();
-    o1.type = 'sawtooth';
-    o1.frequency.value = f;
-    const o2 = ctx.createOscillator();
-    o2.type = 'triangle';
-    o2.frequency.value = f * 2.005;
-    const g2 = ctx.createGain();
-    g2.gain.value = 0.35;
-    o1.connect(lp);
-    o2.connect(g2).connect(lp);
-    lp.connect(g).connect(master);
-    o1.start(time); o2.start(time);
-    o1.stop(time + decay + 0.05); o2.stop(time + decay + 0.05);
+    ev.sort((a, b) => a.t - b.t);
+    return { bpm, beats: bars.length * 2, ev };
   }
 
-  function bass(time, f) {
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0.0001, time);
-    g.gain.exponentialRampToValueAtTime(0.55, time + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001, time + 0.42);
+  const SONG = [
+    section(INTRO, 150, 'normal'),
+    section(VERSE, 112, 'soft'),
+    section(chorus(true), 150, 'normal'),
+    section(chorus(true), 172, 'normal'),
+    section(chorus(true), 198, 'hot'),
+    section(chorus(false), 228, 'hot'),
+  ];
+  const LOOP_FROM = 1;   // nach dem Intro geht es immer wieder mit der Strophe weiter
+
+  let ctx = null, master = null, timer = null, noise = null, waves = {};
+  let playing = false, sec = 0, secStart = 0, idx = 0;
+
+  function pulseWave(duty) {
+    if (waves[duty]) return waves[duty];
+    const n = 48, re = new Float32Array(n), im = new Float32Array(n);
+    for (let k = 1; k < n; k++) {
+      re[k] = Math.sin(2 * Math.PI * k * duty) / (k * Math.PI);
+      im[k] = (1 - Math.cos(2 * Math.PI * k * duty)) / (k * Math.PI);
+    }
+    return (waves[duty] = ctx.createPeriodicWave(re, im));
+  }
+
+  function noiseBuf() {
+    if (noise) return noise;
+    noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+    const d = noise.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    return noise;
+  }
+
+  /* ----- 8-Bit-Instrumente ----- */
+
+  function tone(time, f, len, vol, wave, vib = false) {
     const o = ctx.createOscillator();
-    o.type = 'triangle';
+    if (typeof wave === 'string') o.type = wave; else o.setPeriodicWave(wave);
     o.frequency.value = f;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, time);
+    g.gain.linearRampToValueAtTime(vol, time + 0.006);
+    g.gain.setTargetAtTime(vol * 0.7, time + 0.02, 0.08);
+    g.gain.setTargetAtTime(0.0001, time + Math.max(0.02, len - 0.03), 0.015);
+    if (vib && len > 0.3) {
+      const lfo = ctx.createOscillator();
+      lfo.frequency.value = 6;
+      const lg = ctx.createGain();
+      lg.gain.setValueAtTime(0, time);
+      lg.gain.linearRampToValueAtTime(f * 0.012, time + 0.25);
+      lfo.connect(lg).connect(o.frequency);
+      lfo.start(time); lfo.stop(time + len + 0.1);
+    }
     o.connect(g).connect(master);
     o.start(time);
-    o.stop(time + 0.5);
+    o.stop(time + len + 0.1);
+  }
+
+  function drum(time, kind, soft) {
+    const src = ctx.createBufferSource();
+    src.buffer = noiseBuf();
+    const f = ctx.createBiquadFilter();
+    const g = ctx.createGain();
+    let len;
+    if (kind === 'kick') {
+      // Game-Boy-Kick: kurzer Tonsprung nach unten
+      const o = ctx.createOscillator();
+      o.type = 'square';
+      o.frequency.setValueAtTime(180, time);
+      o.frequency.exponentialRampToValueAtTime(45, time + 0.1);
+      const og = ctx.createGain();
+      og.gain.setValueAtTime(0.22, time);
+      og.gain.exponentialRampToValueAtTime(0.0001, time + 0.12);
+      o.connect(og).connect(master);
+      o.start(time); o.stop(time + 0.15);
+      f.type = 'lowpass'; f.frequency.value = 600; len = 0.05;
+      g.gain.setValueAtTime(0.12, time);
+    } else if (kind === 'snare') {
+      f.type = 'bandpass'; f.frequency.value = 2500; f.Q.value = 0.8; len = 0.14;
+      g.gain.setValueAtTime(0.2, time);
+    } else {
+      f.type = 'highpass'; f.frequency.value = 7000; len = soft ? 0.025 : 0.04;
+      g.gain.setValueAtTime(soft ? 0.05 : 0.09, time);
+    }
+    g.gain.exponentialRampToValueAtTime(0.0001, time + len);
+    src.connect(f).connect(g).connect(master);
+    src.start(time, Math.random() * 0.5);
+    src.stop(time + len + 0.02);
   }
 
   function play(ev, time, spb) {
-    if (ev.type === 'mel') {
-      const f = freq(ev.note) * (ev.oct ? 2 : 1);
-      const len = ev.dur * spb;
-      const vol = ev.oct ? 0.16 : 0.2;
-      if (len >= 0.4) {
-        // Lange Töne: typisches Balalaika-Tremolo
-        const step = 1 / 11;
-        for (let x = 0, k = 0; x < len - 0.03; x += step, k++) {
-          pluck(time + x, f, vol * (k ? 0.62 : 1), step * 1.6);
-        }
-      } else {
-        pluck(time, f, vol, Math.min(0.5, len + 0.18));
+    switch (ev.type) {
+      case 'lead': {
+        const len = ev.dur * spb;
+        tone(time, freq(ev.note) * 2, len * 0.95, 0.075, pulseWave(0.25), true);
+        // leises Echo eine Achtel später – typischer Game-Boy-Trick
+        tone(time + spb / 4, freq(ev.note) * 2, len * 0.8, 0.02, pulseWave(0.125));
+        break;
       }
-    } else if (ev.type === 'bass') {
-      bass(time, freq(ev.note));
-    } else {
-      for (const n of ev.notes) pluck(time, freq(n), 0.06, 0.16, 2200);
+      case 'bass':
+        tone(time, freq(ev.note), ev.dur * spb * 0.85, 0.2, 'triangle');
+        break;
+      case 'arp': {
+        // schnelles Arpeggio über den Akkord
+        const step = 1 / 30;
+        const notes = ev.notes;
+        for (let x = 0, k = 0; x < ev.dur * spb - 0.01; x += step, k++) {
+          tone(time + x, freq(notes[k % notes.length]) * 2, step * 0.9, 0.018, pulseWave(0.125));
+        }
+        break;
+      }
+      default:
+        drum(time, ev.type, ev.soft);
     }
   }
 
@@ -131,20 +205,19 @@ const Music = (() => {
   function tick() {
     if (!playing) return;
     const now = ctx.currentTime;
-    let spb = 60 / bpm;
     for (;;) {
-      if (idx >= EVENTS.length) {
-        const end = loopStart + LOOP_BEATS * spb;
+      const s = SONG[sec];
+      const spb = 60 / s.bpm;
+      if (idx >= s.ev.length) {
+        const end = secStart + s.beats * spb;
         if (end > now + LOOK_AHEAD) break;
-        // Nächster Durchlauf – etwas schneller, nach dem 4. wieder gemütlich
-        loopStart = end;
-        loop = (loop + 1) % 4;
-        bpm = BASE_BPM * (1 + 0.14 * loop);
-        spb = 60 / bpm;
+        secStart = end;
+        sec = sec + 1 < SONG.length ? sec + 1 : LOOP_FROM;
         idx = 0;
+        continue;
       }
-      const ev = EVENTS[idx];
-      const time = loopStart + ev.t * spb;
+      const ev = s.ev[idx];
+      const time = secStart + ev.t * spb;
       if (time > now + LOOK_AHEAD) break;
       if (time >= now - 0.05) play(ev, Math.max(time, now), spb);
       idx++;
@@ -167,14 +240,16 @@ const Music = (() => {
     if (playing) return;
     if (!getCtx()) return;
     master = ctx.createGain();
-    master.gain.value = 0.5;
+    master.gain.value = 0.55;
+    const lp = ctx.createBiquadFilter();   // etwas wärmer als echter Game-Boy-Klang
+    lp.type = 'lowpass';
+    lp.frequency.value = 9000;
     const comp = ctx.createDynamicsCompressor();
-    master.connect(comp).connect(ctx.destination);
+    master.connect(lp).connect(comp).connect(ctx.destination);
     playing = true;
-    loop = 0;
-    bpm = BASE_BPM;
+    sec = 0;
     idx = 0;
-    loopStart = ctx.currentTime + 0.15;
+    secStart = ctx.currentTime + 0.15;
     timer = setInterval(tick, 40);
     tick();
   }

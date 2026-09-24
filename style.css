@@ -741,3 +741,100 @@ html, body { background: #2a140a; }
 }
 .panel input { background: rgba(0,0,0,.3); }
 .big.blue { background: linear-gradient(#5b7cf0, #2b3ea8); box-shadow: 0 4px 0 #1c2870; }
+
+/* ---------- Mehrere Gegner, Schieben, Schummeln ---------- */
+
+#opp-hand { display: flex; gap: 4px; padding: 0 6px; inset: 0; }
+.opp-seat { position: relative; flex: 1; min-width: 0; }
+.opp-fan { position: absolute; inset: 0 0 18px 0; }
+.opp-tag {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  text-align: center;
+  font-size: 12px; font-weight: 800;
+  color: #fff3cf;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.opp-tag .opp-cnt {
+  display: inline-block; min-width: 18px; padding: 0 5px;
+  border-radius: 999px; background: rgba(0,0,0,.4);
+}
+.opp-seat.active .opp-tag { color: #ffd75e; text-shadow: 0 0 8px rgba(255,215,94,.8); }
+.opp-seat.out { opacity: .55; }
+#opp-label { display: none; }
+#opp { height: calc(var(--ocw) * 1.4 + 22px); }
+#opp.many .opp-tag { font-size: 11px; }
+
+.card.cheatable .front::after {
+  content: '🤫';
+  position: absolute; right: 4%; bottom: 20%;
+  font-size: calc(var(--cw) * .16);
+  opacity: .85;
+}
+
+#btn-catch {
+  position: absolute;
+  right: 12px; top: 18px;
+  z-index: 40;
+  padding: 7px 12px;
+  border: 2px solid #ffd75e;
+  border-radius: 999px;
+  background: linear-gradient(#4b2a7a, #2c1450);
+  color: #fff;
+  font-weight: 900;
+  font-size: 14px;
+  box-shadow: 0 3px 8px rgba(0,0,0,.5);
+}
+#btn-catch:active { transform: scale(.95); }
+
+#choice {
+  position: absolute;
+  left: 50%; bottom: 10px;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex; gap: 8px;
+  padding: 8px;
+  border-radius: 16px;
+  background: rgba(40,5,8,.92);
+  border: 2px solid var(--ru-gold, #e0b02f);
+  box-shadow: 0 6px 18px rgba(0,0,0,.6);
+}
+#choice button {
+  padding: 10px 14px;
+  border: none; border-radius: 12px;
+  background: linear-gradient(#ffe066, #ffcb05);
+  font-weight: 900; font-size: 15px; color: #222;
+}
+#choice button.x { background: rgba(255,255,255,.15); color: #fff; }
+
+/* Menüs: Auswahl & Schalter */
+.label { margin: 8px 0 6px; font-weight: 800; font-size: 14px; }
+.seg { display: flex; gap: 6px; justify-content: center; margin-bottom: 12px; }
+.seg button {
+  width: 46px; height: 46px;
+  border-radius: 12px;
+  border: 2px solid #fff5;
+  background: rgba(0,0,0,.25);
+  color: #fff; font-weight: 900; font-size: 18px;
+}
+.seg button.sel { background: linear-gradient(#ffe066, #ffcb05); color: #222; border-color: #ffcb05; }
+.toggle {
+  display: flex; align-items: flex-start; gap: 10px;
+  text-align: left;
+  margin: 10px 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(0,0,0,.22);
+  font-size: 15px;
+}
+.toggle input { width: 22px; height: 22px; margin: 1px 0 0; accent-color: #ffcb05; flex: none; }
+.toggle small { display: block; font-size: 12px; opacity: .8; margin-top: 2px; }
+#lobby-list { list-style: none; padding: 0; margin: 0 0 8px; text-align: left; }
+#lobby-list li {
+  padding: 8px 12px; margin: 4px 0;
+  border-radius: 10px; background: rgba(0,0,0,.25);
+  font-weight: 700;
+}
+.ai-row { display: flex; gap: 8px; }
+.ai-row .big { margin-top: 6px; padding: 10px; font-size: 15px; }
+#over-ranking { text-align: left; margin: 0 auto 8px; max-width: 260px; font-weight: 700; }
+#over-ranking:empty { display: none; }
