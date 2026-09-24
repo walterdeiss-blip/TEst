@@ -155,12 +155,17 @@ const Music = (() => {
     try { return localStorage.getItem(STORE_KEY) !== 'off'; } catch { return true; }
   }
 
+  function getCtx() {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    if (!ctx) ctx = new AC();
+    if (ctx.state === 'suspended' && !document.hidden) ctx.resume();
+    return ctx;
+  }
+
   function start() {
     if (playing) return;
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
-    if (!ctx) ctx = new AC();
-    ctx.resume();
+    if (!getCtx()) return;
     master = ctx.createGain();
     master.gain.value = 0.5;
     const comp = ctx.createDynamicsCompressor();
@@ -202,5 +207,117 @@ const Music = (() => {
   }
   ['pointerup', 'touchend', 'click', 'keydown'].forEach(t => document.addEventListener(t, unlock, true));
 
-  return { start, stop, enabled, setEnabled, isPlaying: () => playing };
+  return { start, stop, enabled, setEnabled, getCtx, isPlaying: () => playing };
+})();
+
+/* =========================================================
+ *  Soundeffekte (ebenfalls live erzeugt)
+ *  bljat(): beim Aufnehmen – zufällig ein kurzer Schrei oder ein Spucken
+ * ========================================================= */
+
+const Sfx = (() => {
+  let noise = null;
+
+  function noiseBuffer(ctx) {
+    if (noise) return noise;
+    noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+    const d = noise.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    return noise;
+  }
+
+  function out(ctx, vol) {
+    const g = ctx.createGain();
+    g.gain.value = vol;
+    g.connect(ctx.destination);
+    return g;
+  }
+
+  function noiseBurst(ctx, dest, t, dur, filterType, f0, f1, q, vol) {
+    const src = ctx.createBufferSource();
+    src.buffer = noiseBuffer(ctx);
+    const f = ctx.createBiquadFilter();
+    f.type = filterType;
+    f.Q.value = q;
+    f.frequency.setValueAtTime(f0, t);
+    f.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + Math.min(0.01, dur / 4));
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f).connect(g).connect(dest);
+    src.start(t, Math.random() * 0.5);
+    src.stop(t + dur + 0.02);
+  }
+
+  // Cartoon-Schrei „Aaah!“: Sägezahn mit Vibrato durch „A“-Formanten
+  function scream(ctx) {
+    const t = ctx.currentTime + 0.02;
+    const dur = 0.7;
+    const dest = out(ctx, 0.9);
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0.0001, t);
+    env.gain.exponentialRampToValueAtTime(0.5, t + 0.04);
+    env.gain.setValueAtTime(0.5, t + dur - 0.25);
+    env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    env.connect(dest);
+
+    const o = ctx.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(480, t);
+    o.frequency.exponentialRampToValueAtTime(760, t + 0.12);
+    o.frequency.exponentialRampToValueAtTime(330, t + dur);
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 8;
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.value = 28;
+    lfo.connect(lfoGain).connect(o.frequency);
+
+    for (const [f, q, v] of [[800, 6, 1], [1150, 7, 0.7], [2900, 9, 0.35]]) {
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = f;
+      bp.Q.value = q;
+      const g = ctx.createGain();
+      g.gain.value = v;
+      o.connect(bp).connect(g).connect(env);
+    }
+    // etwas Atem/Rauheit
+    noiseBurst(ctx, env, t, dur, 'bandpass', 1400, 900, 1.2, 0.25);
+    o.start(t); lfo.start(t);
+    o.stop(t + dur + 0.05); lfo.stop(t + dur + 0.05);
+  }
+
+  // Spucken „Ptui!“ – mit kleinem Aufklatschen
+  function spit(ctx) {
+    const t = ctx.currentTime + 0.02;
+    const dest = out(ctx, 1);
+    // „P“: kurzer, dumpfer Lippenknall
+    noiseBurst(ctx, dest, t, 0.03, 'lowpass', 900, 300, 0.7, 0.9);
+    // „tjui“: zischender Luftstoß, Filter steigt
+    noiseBurst(ctx, dest, t + 0.07, 0.2, 'bandpass', 2200, 7000, 2.5, 0.8);
+    const o = ctx.createOscillator();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(900, t + 0.08);
+    o.frequency.exponentialRampToValueAtTime(2600, t + 0.2);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t + 0.08);
+    g.gain.exponentialRampToValueAtTime(0.18, t + 0.1);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+    o.connect(g).connect(dest);
+    o.start(t + 0.08); o.stop(t + 0.25);
+    // Aufklatschen
+    noiseBurst(ctx, dest, t + 0.42, 0.09, 'lowpass', 1600, 250, 1, 0.7);
+    noiseBurst(ctx, dest, t + 0.47, 0.06, 'bandpass', 3000, 1200, 2, 0.25);
+  }
+
+  let last = Math.random() < 0.5;
+  function bljat() {
+    const ctx = Music.getCtx();
+    if (!ctx) return;
+    last = !last;
+    if (last) scream(ctx); else spit(ctx);
+  }
+
+  return { bljat, scream, spit };
 })();

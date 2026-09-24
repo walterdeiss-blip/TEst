@@ -40,6 +40,8 @@ Gespielt wird auf einer roten Tischdecke mit Goldrand und Stickerei-Borte auf ei
 Im Hintergrund läuft das russische Volkslied **„Korobeiniki“** (19. Jh., gemeinfrei) im
 Balalaika-Stil – live im Browser erzeugt, ohne Audiodateien – und wird mit jeder Wiederholung
 schneller. Der 🎵-Knopf oben links schaltet die Musik aus und wieder an (wird gespeichert).
+Wer **Bljat** sagt und aufnehmen muss, wird mit einem kurzen Schrei oder einem Spucken
+begleitet (abwechselnd zufällig, ebenfalls live erzeugt).
 
 Die Pokémon-Bilder werden aus dem [PokéAPI-Sprites-Repository](https://github.com/PokeAPI/sprites)
 geladen. Ohne Internet zeigen die Karten stattdessen das Typ-Symbol.
@@ -78,7 +80,7 @@ geladen. Ohne Internet zeigen die Karten stattdessen das Typ-Symbol.
 - `index.html` – Aufbau der Seite
 - `style.css` – Spielfeld, Kartendesign und Animationen
 - `game.js` – Spiellogik, Computergegner, Kartenanimationen und Online-Modus
-- `music.js` – Hintergrundmusik (Web Audio)
+- `music.js` – Hintergrundmusik und Soundeffekte (Web Audio)
 - `sw.js`, `manifest.webmanifest`, `icons/` – installierbare Web-App (PWA), offline spielbar
 - `assets/` – Ausgangsbilder für die Icons der Android-App
 - `.github/workflows/android-app.yml` – baut die Android-APK (Capacitor) und veröffentlicht sie als Release

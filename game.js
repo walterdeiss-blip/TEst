@@ -506,13 +506,14 @@ const isRemoteSeat = seat => MODE === 'host' && seat === OPP;
 
 // Meldung anzeigen – aus Sicht von "seat". '{n}' wird durch den Gegnernamen ersetzt.
 // Als Gastgeber geht die Meldung auch an den Gast, der sie aus seiner Sicht zeigt.
-function say(seat, mine, theirs = mine, ms) {
-  showSay(seat, mine, theirs, ms);
-  if (MODE === 'host') send({ t: 'say', seat, mine, theirs, ms });
+function say(seat, mine, theirs = mine, ms, sfx) {
+  showSay(seat, mine, theirs, ms, sfx);
+  if (MODE === 'host') send({ t: 'say', seat, mine, theirs, ms, sfx });
 }
-function showSay(seat, mine, theirs, ms) {
+function showSay(seat, mine, theirs, ms, sfx) {
   const text = seat === null || seat === ME ? mine : theirs;
   toast(text.replace('{n}', oppName), ms);
+  if (sfx && Sfx[sfx]) Sfx[sfx]();
 }
 
 async function newGame() {
@@ -696,7 +697,7 @@ async function doAction(seat, act) {
     busy = true;
     S.phase = 'throwin';
     render();
-    say(seat, 'Bljat! Du nimmst auf', '{n}: Bljat!');
+    say(seat, 'Bljat! Du nimmst auf', '{n}: Bljat!', undefined, 'bljat');
     await sleep(300);
   } else if (act === 'bito' && S.phase === 'attack' && S.table.length > 0) {
     busy = true;
@@ -762,7 +763,7 @@ async function aiTurn() {
       choice = null;
     }
     if (!choice) {
-      say(OPP, 'Bljat! Du nimmst auf', '{n}: Bljat!');
+      say(OPP, 'Bljat! Du nimmst auf', '{n}: Bljat!', undefined, 'bljat');
       S.phase = 'throwin';
       await sleep(400);
       return;
@@ -988,7 +989,7 @@ async function guestHandle(m) {
       break;
     }
     case 'say':
-      showSay(m.seat, m.mine, m.theirs, m.ms);
+      showSay(m.seat, m.mine, m.theirs, m.ms, m.sfx);
       break;
     case 'over':
       finishGame(m.out);
