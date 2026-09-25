@@ -566,6 +566,7 @@ function fly(template, from, to, { delay = 0, dur = 480, realEl = null } = {}) {
     c.classList.remove('playable', 'dim', 'target', 'shake');
     c.classList.add('flying');
     c.classList.toggle('down', from.down);
+    c.classList.toggle('hide-front', from.down);   // iPhone: verdeckte Vorderseite wirklich ausblenden
     c.style.cssText = '';
     c.style.setProperty('--cw', to.w + 'px');
     Object.assign(c.style, {
@@ -584,6 +585,8 @@ function fly(template, from, to, { delay = 0, dur = 480, realEl = null } = {}) {
     ], { duration: dur, delay, easing: 'cubic-bezier(.25,.8,.3,1)', fill: 'both' });
     if (from.down !== to.down) {
       setTimeout(() => c.classList.toggle('down', to.down), delay + dur * 0.1);
+      // Vorderseite erst zeigen bzw. verstecken, wenn die Karte halb umgedreht ist
+      setTimeout(() => c.classList.toggle('hide-front', to.down), delay + dur * 0.1 + 200);
     }
     const finish = () => {
       if (realEl) realEl.style.visibility = '';

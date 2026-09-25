@@ -908,3 +908,8 @@ html, body { background: #2a140a; }
 }
 .pair.slot.cheat { border-color: rgba(190, 140, 255, .9); color: #d9c2ff; }
 .pair.slot span { pointer-events: none; }
+
+/* Verdeckte Karten: Vorderseite wirklich nicht zeichnen.
+   Safari (iPhone) ignoriert backface-visibility teilweise – dann schien der Typ des Gegners durch. */
+.card.down:not(.flying) .front,
+.card.hide-front .front { visibility: hidden; }

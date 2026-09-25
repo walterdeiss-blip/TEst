@@ -1,0 +1,68 @@
+# Lädt kurze, aggressive Männerschreie (CC0) von BigSoundBank herunter,
+# schneidet sie zu, normalisiert sie und legt sie unter audio/kandidaten/ ab.
+name: Schrei-Kandidaten laden
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  scream:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Werkzeuge
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq sox libsox-fmt-mp3 ffmpeg > /dev/null
+
+      - name: Passende Geräusche suchen
+        run: |
+          UA="Mozilla/5.0 (X11; Linux x86_64) PokeDurak-Build"
+          : > pages.txt
+          for q in scream argh shout cri rage yell; do
+            curl -fsSL -A "$UA" "https://bigsoundbank.com/search?q=$q" -o "s_$q.html" || continue
+            grep -oE 'href="[^"]*-s[0-9]{4}\.html"[^>]*>[^<]{0,120}' "s_$q.html" | sed 's/href="//' >> pages.txt || true
+          done
+          sort -u pages.txt | head -80
+          # Seiten mit Mann/Männlich/Argh/Fah im Titel
+          grep -iE 'man|male|homme|argh|fah|shout|yell|rage|anger|battle|war' pages.txt | grep -oE '[^" ]*-s[0-9]{4}\.html' | sort -u | head -12 > pick.txt
+          echo "https://bigsoundbank.com/fah-scream-s3591.html" >> pick.txt
+          sort -u pick.txt -o pick.txt
+          cat pick.txt
+
+      - name: Herunterladen und aufbereiten
+        run: |
+          UA="Mozilla/5.0 (X11; Linux x86_64) PokeDurak-Build"
+          mkdir -p audio/kandidaten raw
+          while read -r page; do
+            case "$page" in http*) url="$page" ;; /*) url="https://bigsoundbank.com$page" ;; *) url="https://bigsoundbank.com/$page" ;; esac
+            id=$(echo "$page" | grep -oE 's[0-9]{4}' | tail -1 | tr -d s)
+            html=$(curl -fsSL -A "$UA" "$url" || true)
+            title=$(echo "$html" | grep -oE '<title>[^<]*' | head -1 | sed 's/<title>//')
+            audio=$(echo "$html" | grep -oE 'https?://[^"'"'"' ]+\.(mp3|wav|ogg)' | grep -E 'wav|mp3' | head -1)
+            [ -z "$audio" ] && audio="https://bigsoundbank.com/UPLOAD/mp3/$id.mp3"
+            echo "$id | $title | $audio"
+            curl -fsSL -A "$UA" -o "raw/$id.src" "$audio" || { echo "  Download fehlgeschlagen"; continue; }
+            ffmpeg -loglevel error -y -i "raw/$id.src" -ac 1 -ar 44100 "raw/$id.wav" || continue
+            # Stille vorne/hinten weg, max. 1,4 s, lauter, kurz ausblenden
+            sox "raw/$id.wav" "raw/$id-t.wav" silence 1 0.01 1% reverse silence 1 0.01 1% reverse trim 0 1.4
+            sox "raw/$id-t.wav" "raw/$id-n.wav" fade 0 -0 0.08 gain -n -1
+            ffmpeg -loglevel error -y -i "raw/$id-n.wav" -b:a 112k "audio/kandidaten/$id.mp3"
+            echo "$id|$title" >> audio/kandidaten/liste.txt
+            soxi -D "raw/$id-n.wav"
+          done < pick.txt
+          ls -la audio/kandidaten
+          cat audio/kandidaten/liste.txt || true
+
+      - name: Übernehmen
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add audio/kandidaten
+          git commit -m "Schrei-Kandidaten (BigSoundBank, CC0)" || echo "nichts zu übernehmen"
+          git pull --rebase origin "$GITHUB_REF_NAME"
+          git push origin HEAD:"$GITHUB_REF_NAME"
