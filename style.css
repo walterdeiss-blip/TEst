@@ -868,3 +868,43 @@ html, body { background: #2a140a; }
   font-size: calc(var(--cw) * .1);
 }
 .card.trump .face .name { background: linear-gradient(90deg, #fff6c2, #ffe066, #fff6c2); color: #6b4a00; }
+
+/* ---------- Karten selbst ablegen: Auswahl, Ziele, Ziehen ---------- */
+
+#hand .card { touch-action: none; }
+#hand .card.selected { translate: 0 -30px; z-index: 50 !important; }
+#hand .card.selected .front {
+  box-shadow: 0 0 0 3px #fff, 0 0 18px 6px rgba(255, 215, 94, .95);
+}
+#hand .card.dragging { opacity: 0; }
+
+.drag-ghost {
+  position: fixed;
+  margin: 0;
+  z-index: 300;
+  pointer-events: none;
+  transition: none;
+  filter: drop-shadow(0 12px 18px rgba(0,0,0,.55));
+}
+
+.pair.drop { cursor: pointer; border-radius: 10px; }
+.pair.drop.legal { box-shadow: 0 0 0 3px rgba(255, 215, 94, .9), 0 0 16px 4px rgba(255, 215, 94, .6); animation: dropPulse 1s ease-in-out infinite; }
+.pair.drop.cheat { box-shadow: 0 0 0 3px rgba(190, 140, 255, .8), 0 0 14px 3px rgba(160, 110, 255, .5); }
+.pair.drop.over { box-shadow: 0 0 0 4px #fff, 0 0 22px 8px rgba(255, 255, 255, .8); animation: none; }
+@keyframes dropPulse { 50% { box-shadow: 0 0 0 3px rgba(255, 215, 94, .5), 0 0 26px 8px rgba(255, 215, 94, .8); } }
+
+.pair.slot {
+  display: grid;
+  place-items: center;
+  width: var(--tcw);
+  height: calc(var(--tcw) * 1.4);
+  border: 3px dashed rgba(255, 215, 94, .85);
+  background: rgba(0, 0, 0, .18);
+  color: #ffd75e;
+  text-align: center;
+  font-weight: 900;
+  font-size: 12px;
+  line-height: 1.3;
+}
+.pair.slot.cheat { border-color: rgba(190, 140, 255, .9); color: #d9c2ff; }
+.pair.slot span { pointer-events: none; }

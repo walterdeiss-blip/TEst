@@ -64,6 +64,14 @@ geladen. Ohne Internet zeigen die Karten stattdessen das Typ-Symbol.
 | K    | Arkani   | Garados   | Nidoking   | Raichu    |
 | A    | Glurak   | Turtok    | Bisaflor   | Zapdos    |
 
+## Bedienung
+
+- **Karte antippen** → sie hebt sich an und die möglichen Ziele auf dem Tisch leuchten auf.
+- **Ziel antippen:** beim Angreifen/Nachlegen „＋ hier legen“, beim Verteidigen die Karte, die du schlagen
+  willst, zum Schieben „➡️ schieben“. Nochmal auf die Karte tippen hebt die Auswahl auf.
+- Oder die Karte einfach **mit dem Finger aufs Ziel ziehen**.
+- **Dawai**, **Bljat** und **Fertig** sagst du selbst über den Knopf rechts – nichts passiert automatisch.
+
 ## Regeln (Podkidnoy Durak, 2–6 Spieler)
 
 - Jeder erhält 6 Karten. Die unterste Stapelkarte liegt offen und bestimmt den **Trumpf**.

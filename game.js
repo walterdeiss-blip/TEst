@@ -238,6 +238,7 @@ function getCardEl(card) {
   };
   img.src = artUrl(card.dex);
   el.addEventListener('click', () => onCardTap(card, el));
+  el.addEventListener('pointerdown', e => onCardDown(card, el, e));
   elCache.set(card.id, el);
   return el;
 }
@@ -391,10 +392,16 @@ function render() {
   // Tisch
   const table = $('#table');
   const humanDefending = humanTurn && S.phase === 'defend';
+  const sel = humanTurn ? selectedCard() : null;
+  if (sel && !P(ME).hand.includes(sel)) selectedId = null;
+  if (!humanTurn && !drag) selectedId = null;
+  const targets = new Map(dropTargets(selectedCard()).map(t => [t.key, t]));
   const pairs = S.table.map((p, i) => {
     const wrap = document.createElement('div');
     wrap.className = 'pair';
-    const a = prep(p.atk, tcw, { rot: ((i * 5) % 7) - 3, extra: humanDefending && !p.def ? 'target' : '' });
+    const tg = targets.get('def:' + i);
+    if (tg) { wrap.dataset.drop = 'def:' + i; wrap.classList.add('drop', tg.legal ? 'legal' : 'cheat'); }
+    const a = prep(p.atk, tcw, { rot: ((i * 5) % 7) - 3, extra: humanDefending && !p.def && !selectedId ? 'target' : '' });
     wrap.appendChild(a);
     if (p.def) {
       const d = prep(p.def, tcw, { rot: 6 + ((i * 3) % 5), extra: 'def' });
@@ -402,6 +409,16 @@ function render() {
     }
     return wrap;
   });
+  // Freie Felder zum Ablegen bzw. Schieben
+  for (const key of ['add', 'transfer']) {
+    const tg = targets.get(key);
+    if (!tg) continue;
+    const slot = document.createElement('div');
+    slot.className = `pair slot drop ${tg.legal ? 'legal' : 'cheat'}`;
+    slot.dataset.drop = key;
+    slot.innerHTML = key === 'add' ? '<span>＋<br>hier legen</span>' : '<span>➡️<br>schieben</span>';
+    pairs.push(slot);
+  }
   table.replaceChildren(...pairs);
 
   // Eigene Hand
@@ -413,6 +430,7 @@ function render() {
   const handEls = sorted.map(c => {
     let extra = '';
     if (humanTurn) extra = isPlayable(c) ? 'playable' : canCheat(c) ? 'cheatable' : 'dim';
+    if (c.id === selectedId) extra += drag && drag.ghost ? ' selected dragging' : ' selected';
     return prep(c, hcw, { extra });
   });
   hand.replaceChildren(...handEls);
@@ -455,7 +473,8 @@ function renderControls(humanTurn) {
   if (S.phase === 'defend') {
     const canBeat = me.hand.some(c => beatTarget(c));
     status.textContent = canBeat
-      ? `Verteidige dich! Schlage die markierten Karten${trans ? ', schieb weiter' : ''} – oder sag Bljat.`
+      ? (selectedId ? 'Tippe die Karte an, die du schlagen willst – oder zieh deine Karte drauf.'
+        : `Verteidige dich! Wähle eine Karte aus deiner Hand${trans ? ' (oder schieb weiter)' : ''} – oder sag Bljat.`)
       : trans ? 'Du kannst nicht schlagen, aber schieben – oder sag Bljat.'
       : 'Du kannst nicht schlagen – sag Bljat und nimm die Karten auf.';
     btn.className = 'take';
@@ -463,7 +482,8 @@ function renderControls(humanTurn) {
     btn.dataset.act = 'take';
   } else if (S.phase === 'attack') {
     if (S.table.length === 0) {
-      status.textContent = `Du greifst ${nameOf(S.defender)} an – spiele eine Karte.`;
+      status.textContent = selectedId ? 'Tippe auf „hier legen“ – oder zieh die Karte auf den Tisch.'
+        : `Du greifst ${nameOf(S.defender)} an – wähle eine Karte.`;
     } else {
       status.textContent = S.turn === S.attacker
         ? 'Alles geschlagen. Lege eine passende Karte nach oder sag Dawai.'
@@ -750,14 +770,13 @@ async function step() {
     return true;
   }
 
-  // Menschen: automatisch „Dawai“, wenn man nichts legen kann
+  // Menschen entscheiden selbst – nur wer gar keine Karten mehr hat, wird automatisch übersprungen
   if ((S.phase === 'attack' || S.phase === 'throwin') && S.table.length > 0) {
     const hand = P(who).hand;
-    const mayCheat = S.rules.cheat && roomToAdd() && hand.length > 0;
-    if (!hand.some(canAdd) && !mayCheat) {
+    if (hand.length === 0) {
       const v = S.ver;
       render();
-      await sleep(hand.length ? 450 : 150);
+      await sleep(150);
       if (S.ver !== v) return true;
       await exclusive(() => (S.ver === v ? passTurn(who, true) : null));
       return true;
@@ -780,8 +799,7 @@ async function addCard(seat, card) {
   });
 }
 
-async function defendCard(card) {
-  const target = beatTarget(card) || uncovered()[0];
+async function defendCard(card, target = beatTarget(card) || uncovered()[0]) {
   const cheat = !beats(target.atk, card);
   await animateChange(() => {
     removeFrom(P(S.defender).hand, card);
@@ -1004,11 +1022,13 @@ async function applyMove(seat, move) {
       if (move.transfer) {
         if (!canTransfer(card, seat)) return false;
         await transferCard(card);
-      } else if (beatTarget(card) || canCheat(card, seat)) {
-        await defendCard(card);
-      } else if (canTransfer(card, seat)) {
-        await transferCard(card);
-      } else return false;
+        return true;
+      }
+      // Ziel: die angetippte Angriffskarte (oder – bei alten Versionen – die erste passende)
+      const target = Number.isInteger(move.target) ? S.table[move.target] : beatTarget(card) || uncovered()[0];
+      if (!target || target.def) return false;
+      if (!beats(target.atk, card) && !S.rules.cheat) return false;
+      await defendCard(card, target);
     } else {
       if (!canAdd(card) && !canCheat(card, seat)) return false;
       await addCard(seat, card);
@@ -1044,30 +1064,119 @@ function shake(el) {
   if (navigator.vibrate) navigator.vibrate(30);
 }
 
-function onCardTap(card, el) {
-  if (animating || waitingForHost || S.over || !P(ME)) return;
-  if (!P(ME).hand.includes(card) || actor() !== ME) return;
-  if (S.phase === 'defend' && canTransfer(card) && beatTarget(card)) {
-    return askChoice(card);
-  }
-  if (isPlayable(card)) return localMove({ t: 'card', id: card.id, transfer: S.phase === 'defend' && !beatTarget(card) });
-  if (canCheat(card)) {
-    toast('🤫 Geschummelt…', 900);
-    return localMove({ t: 'card', id: card.id });
-  }
-  shake(el);
+/* ----- Karte auswählen und selbst ablegen (antippen oder ziehen) ----- */
+
+let selectedId = null;    // ausgewählte Handkarte
+let drag = null;          // laufendes Ziehen mit dem Finger
+let suppressClick = false;
+
+const selectedCard = () => (selectedId ? CARD_BY_ID.get(selectedId) : null);
+
+function canUseCard(card) {
+  return isPlayable(card) || canCheat(card);
 }
 
-function askChoice(card) {
-  const box = $('#choice');
-  box.classList.remove('hidden');
-  box.onclick = e => {
-    const b = e.target.closest('button');
-    if (!b) return;
-    box.classList.add('hidden');
-    if (b.dataset.c === 'cancel') return;
-    localMove({ t: 'card', id: card.id, transfer: b.dataset.c === 'transfer' });
-  };
+function myInputAllowed() {
+  return !animating && !waitingForHost && !S.over && P(ME) && actor() === ME;
+}
+
+function onCardTap(card, el) {
+  if (suppressClick) { suppressClick = false; return; }
+  if (!myInputAllowed() || !P(ME).hand.includes(card)) return;
+  if (!canUseCard(card)) return shake(el);
+  selectedId = selectedId === card.id ? null : card.id;
+  render();
+}
+
+// Wohin darf die ausgewählte Karte? → Liste von Zielen
+function dropTargets(card) {
+  const t = [];
+  if (!card || !myInputAllowed()) return t;
+  if (S.phase === 'defend') {
+    S.table.forEach((p, i) => {
+      if (p.def) return;
+      if (beats(p.atk, card)) t.push({ key: 'def:' + i, legal: true });
+      else if (S.rules.cheat) t.push({ key: 'def:' + i, legal: false });
+    });
+    if (canTransfer(card)) t.push({ key: 'transfer', legal: true });
+  } else if (canAdd(card)) {
+    t.push({ key: 'add', legal: true });
+  } else if (canCheat(card)) {
+    t.push({ key: 'add', legal: false });
+  }
+  return t;
+}
+
+function playTo(card, key) {
+  const target = dropTargets(card).find(t => t.key === key);
+  if (!target) return false;
+  selectedId = null;
+  if (!target.legal) toast('🤫 Geschummelt…', 900);
+  if (key === 'transfer') localMove({ t: 'card', id: card.id, transfer: true });
+  else if (key === 'add') localMove({ t: 'card', id: card.id });
+  else localMove({ t: 'card', id: card.id, target: Number(key.slice(4)) });
+  return true;
+}
+
+function onTableTap(e) {
+  const card = selectedCard();
+  if (!card) return;
+  const zone = e.target.closest('[data-drop]');
+  if (zone) playTo(card, zone.dataset.drop);
+}
+
+function onCardDown(card, el, e) {
+  if (e.button > 0 || !myInputAllowed() || !P(ME).hand.includes(card) || !canUseCard(card)) return;
+  drag = { card, el, x0: e.clientX, y0: e.clientY, ghost: null, id: e.pointerId };
+  window.addEventListener('pointermove', onDragMove);
+  window.addEventListener('pointerup', onDragEnd);
+  window.addEventListener('pointercancel', onDragEnd);
+}
+
+function onDragMove(e) {
+  if (!drag || e.pointerId !== drag.id) return;
+  const dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
+  if (!drag.ghost) {
+    if (Math.hypot(dx, dy) < 12) return;
+    // Ziehen beginnt: Karte auswählen und als „Geist“ unter dem Finger zeigen
+    selectedId = drag.card.id;
+    const b = drag.el.getBoundingClientRect();
+    const g = drag.el.cloneNode(true);
+    g.removeAttribute('data-id');
+    g.classList.remove('playable', 'cheatable', 'selected', 'dim');
+    g.classList.add('drag-ghost');
+    g.style.cssText = '';
+    g.style.setProperty('--cw', drag.el.offsetWidth + 'px');
+    Object.assign(g.style, { left: b.left + 'px', top: b.top + 'px' });
+    $('#fx').appendChild(g);
+    drag.ghost = g;
+    drag.gx = b.left; drag.gy = b.top;
+    render();
+  }
+  drag.ghost.style.transform = `translate(${dx}px, ${dy}px) rotate(${dx / 25}deg) scale(1.08)`;
+  const over = document.elementFromPoint(e.clientX, e.clientY);
+  const zone = over && over.closest('[data-drop]');
+  document.querySelectorAll('[data-drop].over').forEach(z => z.classList.remove('over'));
+  if (zone) zone.classList.add('over');
+}
+
+function onDragEnd(e) {
+  if (!drag || e.pointerId !== drag.id) return;
+  window.removeEventListener('pointermove', onDragMove);
+  window.removeEventListener('pointerup', onDragEnd);
+  window.removeEventListener('pointercancel', onDragEnd);
+  const d = drag;
+  drag = null;
+  if (!d.ghost) return;            // war nur ein Antippen
+  suppressClick = true;
+  setTimeout(() => { suppressClick = false; }, 50);
+  d.ghost.remove();
+  const over = document.elementFromPoint(e.clientX, e.clientY);
+  const zone = over && over.closest('[data-drop]');
+  if (!(zone && playTo(d.card, zone.dataset.drop))) {
+    selectedId = null;             // daneben losgelassen: Karte zurück auf die Hand
+    render();
+  }
 }
 
 function onAction() {
@@ -1649,6 +1758,7 @@ function restartGame() {
 
 $('#action').addEventListener('click', onAction);
 $('#btn-catch').addEventListener('click', onCatch);
+$('#table').addEventListener('click', onTableTap);
 $('#btn-start').addEventListener('click', openSetup);
 $('#btn-setup-start').addEventListener('click', startAIGame);
 $('#btn-setup-back').addEventListener('click', () => showScreen('#screen-start'));
