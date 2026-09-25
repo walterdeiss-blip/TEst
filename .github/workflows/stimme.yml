@@ -1,0 +1,71 @@
+# Erzeugt die gesprochenen „Блять!“-Rufe (russische Piper-Stimmen), macht sie wütend/laut
+# und legt sie unter audio/ ins Repository. Wird von Hand gestartet.
+name: Bljat-Stimme erzeugen
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  voice:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Werkzeuge installieren
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq sox libsox-fmt-mp3 ffmpeg > /dev/null
+          pip install -q piper-tts==1.2.0
+
+      - name: Russische Stimmen laden
+        run: |
+          mkdir -p voices
+          for v in dmitri/medium/ru_RU-dmitri-medium denis/medium/ru_RU-denis-medium ruslan/medium/ru_RU-ruslan-medium; do
+            base=https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/ru/ru_RU/$v
+            name=$(basename $v)
+            curl -fsSL -o voices/$name.onnx "$base.onnx" || echo "fehlt: $name"
+            curl -fsSL -o voices/$name.onnx.json "$base.onnx.json" || true
+            curl -fsSL "$(dirname $base)/MODEL_CARD" | head -20 || true
+          done
+          ls -la voices
+
+      - name: „Блять!“ sprechen und wütend machen
+        run: |
+          mkdir -p audio raw
+          i=0
+          for m in voices/*.onnx; do
+            [ -s "$m" ] || continue
+            for speed in 0.75 0.9; do
+              i=$((i+1))
+              echo "БЛЯТЬ!" | piper --model "$m" --length_scale $speed --noise_scale 0.9 --noise_w 0.9 --output_file raw/v$i.wav
+              # tiefer, lauter, rau: Tonhöhe runter, Übersteuerung, Kompressor, kurzer Hall
+              sox raw/v$i.wav raw/a$i.wav silence 1 0.02 1% reverse silence 1 0.02 1% reverse \
+                pitch -250 overdrive 12 10 bass +6 treble +3 compand 0.01,0.15 -60,-60,-30,-10,-10,-3 -3 \
+                reverb 18 50 30 gain -n -1
+              ffmpeg -loglevel error -y -i raw/a$i.wav -ac 1 -ar 44100 -b:a 96k audio/bljat$i.mp3
+              echo "audio/bljat$i.mp3 ($m, speed $speed)"
+            done
+          done
+          ls -la audio
+
+      - name: Dateien ins Repository übernehmen
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add audio
+          git commit -m "Bljat-Stimme erzeugt (Piper, russisch)" || echo "nichts zu übernehmen"
+          git push
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bljat-stimme
+          path: |
+            audio
+            raw
