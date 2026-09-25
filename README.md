@@ -42,9 +42,10 @@ Im Hintergrund läuft **„Kalinka“** (russisches Volkslied, Iwan Larionow 186
 der alten Pokémon-Game-Boy-Spiele: Rechteck-Melodie, Akkord-Arpeggios, 8-Bit-Bass und -Schlagzeug.
 Nach einer ruhigen Strophe wird der Refrain – wie in Russland üblich – mit jeder Wiederholung
 schneller. Alles wird live im Browser erzeugt, ohne Audiodateien. Der 🎵-Knopf oben links schaltet die Musik aus und wieder an (wird gespeichert).
-Wer **Bljat** sagt und aufnehmen muss, wird von einer wütenden Männerstimme angebrüllt: „Блять!“
-(sechs Varianten in `audio/`, erzeugt mit den freien russischen [Piper](https://github.com/rhasspy/piper)-Stimmen
-und per sox tiefer, rauer und lauter gemacht – Workflow `.github/workflows/stimme.yml`).
+Wer **Bljat** sagt und aufnehmen muss, wird von einem kurzen, aggressiven Männerschrei begleitet
+(vier Varianten in `audio/`, aus den CC0-Aufnahmen [„Fah“ Scream](https://bigsoundbank.com/fah-scream-s3591.html)
+und [Cry of Pain](https://bigsoundbank.com/cry-of-pain-s2361.html) von BigSoundBank, teils tiefer und rauer
+gemacht – Workflow `.github/workflows/schrei.yml`).
 
 Die Pokémon-Bilder werden aus dem [PokéAPI-Sprites-Repository](https://github.com/PokeAPI/sprites)
 geladen. Ohne Internet zeigen die Karten stattdessen das Typ-Symbol.
@@ -103,7 +104,7 @@ geladen. Ohne Internet zeigen die Karten stattdessen das Typ-Symbol.
 - `style.css` – Spielfeld, Kartendesign und Animationen
 - `game.js` – Spiellogik, Computergegner, Kartenanimationen und Online-Modus
 - `music.js` – Hintergrundmusik und Soundeffekte (Web Audio)
-- `audio/` – die gesprochenen „Блять!“-Rufe
+- `audio/` – die Bljat-Schreie (CC0, BigSoundBank)
 - `sw.js`, `manifest.webmanifest`, `icons/` – installierbare Web-App (PWA), offline spielbar
 - `assets/` – Ausgangsbilder für die Icons der Android-App
 - `.github/workflows/android-app.yml` – baut die Android-APK (Capacitor) und veröffentlicht sie als Release
