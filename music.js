@@ -291,6 +291,7 @@ const Music = (() => {
       src.connect(c.destination);
       src.start(0);
       if (enabled()) start();
+      setTimeout(() => { if (window.Sfx) Sfx.preload(); }, 0);
     }
   }
   ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'].forEach(t => document.addEventListener(t, unlock, true));
@@ -312,7 +313,7 @@ const Music = (() => {
  *  bljat(): beim Aufnehmen – zufällig ein kurzer Schrei oder ein Spucken
  * ========================================================= */
 
-const Sfx = (() => {
+var Sfx = (() => {
   let noise = null;
 
   function noiseBuffer(ctx) {
@@ -416,15 +417,50 @@ const Sfx = (() => {
     noiseBurst(ctx, dest, t + 0.47, 0.06, 'bandpass', 3000, 1200, 2, 0.25);
   }
 
-  let last = Math.random() < 0.5;
+  // Gesprochene „Блять!“-Rufe (audio/bljat1.mp3 …), werden einmal geladen und dann zufällig abgespielt
+  const VOICE_FILES = [1, 2, 3, 4, 5, 6].map(n => `audio/bljat${n}.mp3`);
+  let voices = null;          // Promise → Liste dekodierter Aufnahmen
+  let lastVoice = -1;
+
+  function loadVoices(ctx) {
+    if (voices) return voices;
+    voices = Promise.all(VOICE_FILES.map(url =>
+      fetch(url)
+        .then(r => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(url))))
+        .then(buf => new Promise((res, rej) => ctx.decodeAudioData(buf, res, rej)))
+        .catch(() => null)))
+      .then(list => list.filter(Boolean));
+    return voices;
+  }
+
+  function playVoice(ctx, list) {
+    let i = Math.floor(Math.random() * list.length);
+    if (list.length > 1 && i === lastVoice) i = (i + 1) % list.length;
+    lastVoice = i;
+    const src = ctx.createBufferSource();
+    src.buffer = list[i];
+    const g = ctx.createGain();
+    g.gain.value = 1;
+    src.connect(g).connect(ctx.destination);
+    src.start();
+  }
+
   function bljat() {
     const ctx = Music.getCtx();
     if (!ctx) return;
     if (ctx.state !== 'running') ctx.resume();
     Music.duck(1300);
-    last = !last;
-    if (last) scream(ctx); else spit(ctx);
+    loadVoices(ctx).then(list => {
+      if (list.length) playVoice(ctx, list);
+      else scream(ctx);          // Notfall: ohne Tondateien der alte Schrei
+    });
   }
 
-  return { bljat, scream, spit };
+  // Beim ersten Tippen schon laden, damit der Ruf sofort kommt
+  function preload() {
+    const ctx = Music.getCtx();
+    if (ctx) loadVoices(ctx);
+  }
+
+  return { bljat, scream, spit, preload };
 })();

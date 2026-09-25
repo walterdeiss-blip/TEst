@@ -33,6 +33,7 @@ jobs:
         run: |
           mkdir -p app/www
           cp -r index.html style.css game.js music.js manifest.webmanifest icon.svg icons vendor app/www/
+          [ -d audio ] && cp -r audio app/www/ || true
           cp -r assets app/assets
           cd app
           npm init -y > /dev/null
