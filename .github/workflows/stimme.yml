@@ -39,18 +39,22 @@ jobs:
       - name: „Блять!“ sprechen und wütend machen
         run: |
           mkdir -p audio raw
+          rm -f audio/bljat*.mp3
           i=0
           for m in voices/*.onnx; do
             [ -s "$m" ] || continue
-            for speed in 0.75 0.9; do
+            # einmal kurz und wütend, einmal lang gezogen gebrüllt
+            for variant in "Блять!|1.0" "Бля-я-ять!|1.25"; do
+              text="${variant%%|*}"; speed="${variant##*|}"
               i=$((i+1))
-              echo "БЛЯТЬ!" | piper --model "$m" --length_scale $speed --noise_scale 0.9 --noise_w 0.9 --output_file raw/v$i.wav
-              # tiefer, lauter, rau: Tonhöhe runter, Übersteuerung, Kompressor, kurzer Hall
-              sox raw/v$i.wav raw/a$i.wav silence 1 0.02 1% reverse silence 1 0.02 1% reverse \
-                pitch -250 overdrive 12 10 bass +6 treble +3 compand 0.01,0.15 -60,-60,-30,-10,-10,-3 -3 \
-                reverb 18 50 30 gain -n -1
-              ffmpeg -loglevel error -y -i raw/a$i.wav -ac 1 -ar 44100 -b:a 96k audio/bljat$i.mp3
-              echo "audio/bljat$i.mp3 ($m, speed $speed)"
+              echo "$text" | piper --model "$m" --length_scale $speed --noise_scale 0.8 --noise_w 0.9 --output_file raw/v$i.wav
+              # tiefer, lauter, rau: Tonhöhe runter, Übersteuerung, Kompressor, Hall wie in einem Raum
+              sox raw/v$i.wav raw/a$i.wav silence 1 0.01 0.5% reverse silence 1 0.01 0.5% reverse \
+                gain -3 pitch -180 overdrive 9 12 bass +5 treble +4 \
+                compand 0.005,0.2 -60,-60,-30,-12,-12,-4 -3 \
+                pad 0 0.35 reverb 35 50 60 fade 0 0 0.12 gain -n -1
+              ffmpeg -loglevel error -y -i raw/a$i.wav -ac 1 -ar 44100 -b:a 112k audio/bljat$i.mp3
+              echo "audio/bljat$i.mp3: $text ($m, Tempo $speed)"
             done
           done
           ls -la audio
@@ -61,7 +65,8 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add audio
           git commit -m "Bljat-Stimme erzeugt (Piper, russisch)" || echo "nichts zu übernehmen"
-          git push
+          git pull --rebase origin "$GITHUB_REF_NAME"
+          git push origin HEAD:"$GITHUB_REF_NAME"
 
       - uses: actions/upload-artifact@v4
         with:
