@@ -52,7 +52,9 @@ jobs:
               sox raw/v$i.wav raw/a$i.wav silence 1 0.01 0.5% reverse silence 1 0.01 0.5% reverse \
                 gain -3 pitch -180 overdrive 9 12 bass +5 treble +4 \
                 compand 0.005,0.2 -60,-60,-30,-12,-12,-4 -3 \
-                pad 0 0.35 reverb 35 50 60 fade 0 0 0.12 gain -n -1
+                pad 0 0.35 reverb 35 50 60
+              sox raw/a$i.wav raw/b$i.wav fade 0 -0 0.12 gain -n -1
+              mv raw/b$i.wav raw/a$i.wav
               ffmpeg -loglevel error -y -i raw/a$i.wav -ac 1 -ar 44100 -b:a 112k audio/bljat$i.mp3
               echo "audio/bljat$i.mp3: $text ($m, Tempo $speed)"
             done
