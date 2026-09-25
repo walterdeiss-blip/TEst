@@ -417,8 +417,8 @@ var Sfx = (() => {
     noiseBurst(ctx, dest, t + 0.47, 0.06, 'bandpass', 3000, 1200, 2, 0.25);
   }
 
-  // Gesprochene „Блять!“-Rufe (audio/bljat1.mp3 …), werden einmal geladen und dann zufällig abgespielt
-  const VOICE_FILES = [1, 2, 3, 4, 5, 6].map(n => `audio/bljat${n}.mp3`);
+  // Aggressive Männerschreie (audio/bljat1.mp3 …), werden einmal geladen und dann zufällig abgespielt
+  const VOICE_FILES = [1, 2, 3, 4].map(n => `audio/bljat${n}.mp3`);
   let voices = null;          // Promise → Liste dekodierter Aufnahmen
   let lastVoice = -1;
 
