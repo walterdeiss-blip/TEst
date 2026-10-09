@@ -1,0 +1,292 @@
+/* Padel – reine Logik ohne Oberfläche: Zählen, Rangliste, Turnier-Paarungen, Einladungslinks.
+   Läuft im Browser (window.PadelLogic) und in Node (für die Tests). */
+'use strict';
+
+(function (root) {
+
+  /* ---------- Punkte zählen ---------- */
+
+  // Aufschlagreihenfolge: A1, B1, A2, B2 → Index s: Team = s % 2, Spieler = s >> 1
+  const serveTeam = s => s % 2;
+  const servePlayer = s => s >> 1;
+
+  function newMatch(cfg) {
+    return {
+      cfg: {
+        bestOf: cfg.bestOf === 1 ? 1 : 3,
+        golden: !!cfg.golden,          // Golden Point bei 40:40
+        superTb: !!cfg.superTb,        // 3. Satz als Match-Tiebreak bis 10
+        names: cfg.names,              // [[A1, A2], [B1, B2]]
+      },
+      sets: [],                        // abgeschlossene Sätze: { g: [a, b], tb: [x, y] | null, super: bool }
+      games: [0, 0],
+      points: [0, 0],
+      tb: null,                        // laufender Tiebreak: { target, start }
+      server: cfg.server || 0,
+      winner: null,
+      history: [],
+    };
+  }
+
+  const setsWon = m => m.sets.reduce((w, s) => {
+    w[s.g[0] > s.g[1] ? 0 : 1]++;
+    return w;
+  }, [0, 0]);
+
+  function currentServer(m) {
+    if (!m.tb) return m.server;
+    const p = m.points[0] + m.points[1];
+    return (m.tb.start + Math.floor((p + 1) / 2)) % 4;
+  }
+
+  function snapshot(m) {
+    const { history, ...rest } = m;
+    return JSON.stringify(rest);
+  }
+
+  // Gibt ein Ereignis zurück, das die Oberfläche anzeigen kann (Spiel, Satz, Match, Seitenwechsel).
+  function addPoint(m, t) {
+    if (m.winner !== null) return null;
+    m.history.push(snapshot(m));
+    const o = 1 - t;
+    m.points[t]++;
+    const p = m.points;
+
+    if (m.tb) {
+      const total = p[0] + p[1];
+      if (p[t] >= m.tb.target && p[t] - p[o] >= 2) {
+        const isSuper = m.tb.target === 10 && m.games[0] === 0 && m.games[1] === 0;
+        const g = isSuper ? (t === 0 ? [1, 0] : [0, 1]) : (t === 0 ? [7, 6] : [6, 7]);
+        m.server = (m.tb.start + 1) % 4;
+        m.sets.push({ g, tb: [p[0], p[1]], super: isSuper });
+        m.tb = null;
+        return finishSet(m, t);
+      }
+      return total % 6 === 0 ? { type: 'side' } : null;
+    }
+
+    const won = m.cfg.golden && p[0] >= 3 && p[1] >= 3 ? p[t] > p[o] : p[t] >= 4 && p[t] - p[o] >= 2;
+    if (!won) return null;
+
+    m.points = [0, 0];
+    m.games[t]++;
+    m.server = (m.server + 1) % 4;
+    const g = m.games;
+    if ((g[t] >= 6 && g[t] - g[o] >= 2) || g[t] === 7) {
+      m.sets.push({ g: [g[0], g[1]], tb: null, super: false });
+      return finishSet(m, t);
+    }
+    if (g[0] === 6 && g[1] === 6) {
+      m.tb = { target: 7, start: m.server };
+      return { type: 'tiebreak' };
+    }
+    return { type: 'game', side: (g[0] + g[1]) % 2 === 1 };
+  }
+
+  function finishSet(m, t) {
+    m.games = [0, 0];
+    m.points = [0, 0];
+    const w = setsWon(m);
+    const need = Math.floor(m.cfg.bestOf / 2) + 1;
+    if (w[t] >= need) {
+      m.winner = t;
+      return { type: 'match', team: t };
+    }
+    if (m.cfg.superTb && m.cfg.bestOf === 3 && w[0] === 1 && w[1] === 1) {
+      m.tb = { target: 10, start: m.server };
+      return { type: 'set', team: t, superTb: true };
+    }
+    // Seitenwechsel nach dem Satz, wenn die Spielsumme ungerade war
+    const last = m.sets[m.sets.length - 1].g;
+    return { type: 'set', team: t, side: (last[0] + last[1]) % 2 === 1 };
+  }
+
+  function undo(m) {
+    const prev = m.history.pop();
+    if (!prev) return false;
+    Object.assign(m, JSON.parse(prev), { history: m.history });
+    return true;
+  }
+
+  // Anzeige der Punkte im laufenden Spiel, z. B. ['40', 'AD']
+  function pointLabels(m) {
+    const p = m.points;
+    if (m.tb) return [String(p[0]), String(p[1])];
+    const names = ['0', '15', '30', '40'];
+    if (p[0] >= 3 && p[1] >= 3) {
+      if (p[0] === p[1]) return ['40', '40'];
+      return p[0] > p[1] ? ['AD', '40'] : ['40', 'AD'];
+    }
+    return [names[p[0]], names[p[1]]];
+  }
+
+  function statusText(m) {
+    if (m.winner !== null) return 'Spiel beendet';
+    if (m.tb) return m.tb.target === 10 ? 'Match-Tiebreak (bis 10)' : 'Tiebreak (bis 7)';
+    const p = m.points;
+    if (p[0] >= 3 && p[1] >= 3) {
+      if (p[0] === p[1]) return m.cfg.golden ? '⚡ Golden Point' : 'Einstand';
+      return 'Vorteil';
+    }
+    return `${m.sets.length + 1}. Satz`;
+  }
+
+  /* ---------- Rangliste (Elo) ---------- */
+
+  const ELO_START = 1000;
+  const ELO_K = 32;
+
+  // Spielt alle Ergebnisse in zeitlicher Reihenfolge durch und berechnet Wertung und Statistik.
+  function ranking(players, matches) {
+    const st = {};
+    players.forEach(p => {
+      st[p.id] = { id: p.id, name: p.name, elo: ELO_START, played: 0, won: 0, lost: 0, drawn: 0, trend: [] };
+    });
+    [...matches].sort((x, y) => x.ts - y.ts).forEach(mt => {
+      const ids = [...mt.a, ...mt.b];
+      if (!ids.every(id => st[id])) return;
+      const ra = (st[mt.a[0]].elo + st[mt.a[1]].elo) / 2;
+      const rb = (st[mt.b[0]].elo + st[mt.b[1]].elo) / 2;
+      const ea = 1 / (1 + Math.pow(10, (rb - ra) / 400));
+      const sa = mt.win === 0 ? 1 : mt.win === 1 ? 0 : 0.5;
+      const d = ELO_K * (sa - ea);
+      mt.a.forEach(id => apply(st[id], d, sa));
+      mt.b.forEach(id => apply(st[id], -d, 1 - sa));
+    });
+    return Object.values(st).sort((x, y) => y.elo - x.elo || y.won - x.won || x.name.localeCompare(y.name));
+  }
+
+  function apply(s, d, score) {
+    s.elo += d;
+    s.played++;
+    if (score === 1) s.won++;
+    else if (score === 0) s.lost++;
+    else s.drawn++;
+    s.trend.push(score === 1 ? 'S' : score === 0 ? 'N' : 'U');
+  }
+
+  /* ---------- Americano / Mexicano ---------- */
+
+  function shuffle(a, rnd = Math.random) {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  // Punktestand: Summe der erzielten Punkte, dazu Siege und Differenz.
+  function standings(t) {
+    const s = {};
+    t.players.forEach(id => { s[id] = { id, pts: 0, diff: 0, played: 0, won: 0, sat: 0 }; });
+    t.rounds.forEach(r => {
+      r.sit.forEach(id => s[id].sat++);
+      r.matches.forEach(mt => {
+        if (mt.sa === null || mt.sb === null) return;
+        const add = (ids, own, other) => ids.forEach(id => {
+          s[id].pts += own;
+          s[id].diff += own - other;
+          s[id].played++;
+          if (own > other) s[id].won++;
+        });
+        add(mt.a, mt.sa, mt.sb);
+        add(mt.b, mt.sb, mt.sa);
+      });
+    });
+    return Object.values(s).sort((x, y) => (y.pts - x.pts) || (y.diff - x.diff) || (y.won - x.won));
+  }
+
+  function pickSitters(t, count, order, rnd) {
+    if (!count) return [];
+    const sat = {};
+    t.players.forEach(id => { sat[id] = 0; });
+    t.rounds.forEach(r => r.sit.forEach(id => sat[id]++));
+    const pos = new Map(order.map((id, i) => [id, i]));
+    // Wer am seltensten ausgesetzt hat, setzt aus; bei Gleichstand zufällig bzw. nach Reihenfolge
+    const cand = shuffle([...t.players], rnd).sort((x, y) =>
+      sat[x] - sat[y] || (order.length ? pos.get(y) - pos.get(x) : 0));
+    return cand.slice(0, count);
+  }
+
+  function nextRound(t, rnd = Math.random) {
+    const courts = Math.min(t.courts, Math.floor(t.players.length / 4));
+    const sitCount = t.players.length - courts * 4;
+    const ranked = t.mode === 'mexicano' && t.rounds.length ? standings(t).map(s => s.id) : [];
+    const sit = pickSitters(t, sitCount, ranked, rnd);
+    const active = t.players.filter(id => !sit.includes(id));
+    let matches;
+
+    if (t.mode === 'mexicano' && t.rounds.length) {
+      // Nach Tabelle: 1+4 gegen 2+3 in jeder Vierergruppe
+      const order = ranked.filter(id => active.includes(id));
+      matches = [];
+      for (let i = 0; i < order.length; i += 4) {
+        const [p1, p2, p3, p4] = order.slice(i, i + 4);
+        matches.push({ a: [p1, p4], b: [p2, p3], sa: null, sb: null });
+      }
+    } else {
+      matches = bestAmericano(t, active, rnd);
+    }
+    const round = { matches, sit };
+    t.rounds.push(round);
+    return round;
+  }
+
+  // Sucht unter vielen Zufallsaufstellungen die mit den wenigsten wiederholten Partnern/Gegnern.
+  function bestAmericano(t, active, rnd) {
+    const key = (x, y) => x < y ? x + '|' + y : y + '|' + x;
+    const partner = {}, opp = {};
+    t.rounds.forEach(r => r.matches.forEach(mt => {
+      partner[key(...mt.a)] = (partner[key(...mt.a)] || 0) + 1;
+      partner[key(...mt.b)] = (partner[key(...mt.b)] || 0) + 1;
+      mt.a.forEach(x => mt.b.forEach(y => { opp[key(x, y)] = (opp[key(x, y)] || 0) + 1; }));
+    }));
+    let best = null, bestCost = Infinity;
+    for (let tries = 0; tries < 400 && bestCost > 0; tries++) {
+      const p = shuffle([...active], rnd);
+      let cost = 0;
+      const ms = [];
+      for (let i = 0; i < p.length; i += 4) {
+        const a = [p[i], p[i + 1]], b = [p[i + 2], p[i + 3]];
+        cost += 100 * ((partner[key(...a)] || 0) + (partner[key(...b)] || 0));
+        a.forEach(x => b.forEach(y => { cost += opp[key(x, y)] || 0; }));
+        ms.push({ a, b, sa: null, sb: null });
+      }
+      if (cost < bestCost) { best = ms; bestCost = cost; }
+    }
+    return best;
+  }
+
+  /* ---------- Einladungs- und Antwortlinks ---------- */
+
+  function encode(obj) {
+    const bytes = new TextEncoder().encode(JSON.stringify(obj));
+    let bin = '';
+    bytes.forEach(b => { bin += String.fromCharCode(b); });
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  function decode(str) {
+    try {
+      const bin = atob(str.replace(/-/g, '+').replace(/_/g, '/'));
+      const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+      return JSON.parse(new TextDecoder().decode(bytes));
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Liest #t=… (Einladung) oder #r=… (Antwort) aus einem Link oder Hash.
+  function parseLink(text) {
+    const m = /#([tr])=([A-Za-z0-9_-]+)/.exec(text || '');
+    if (!m) return null;
+    const data = decode(m[2]);
+    return data ? { kind: m[1] === 't' ? 'invite' : 'reply', data } : null;
+  }
+
+  root.PadelLogic = {
+    newMatch, addPoint, undo, pointLabels, statusText, currentServer, serveTeam, servePlayer, setsWon,
+    ranking, ELO_START, standings, nextRound, shuffle, encode, decode, parseLink,
+  };
+  if (typeof module !== 'undefined') module.exports = root.PadelLogic;
+})(typeof window !== 'undefined' ? window : globalThis);

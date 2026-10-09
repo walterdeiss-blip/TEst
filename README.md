@@ -100,6 +100,8 @@ geladen. Ohne Internet zeigen die Karten stattdessen das Typ-Symbol.
 
 ## Dateien
 
+- `padel/` – eigene Padel-App (Zählen, Rangliste, Turnier, Termine), siehe [`padel/README.md`](padel/README.md)
+
 - `index.html` – Aufbau der Seite
 - `style.css` – Spielfeld, Kartendesign und Animationen
 - `game.js` – Spiellogik, Computergegner, Kartenanimationen und Online-Modus

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#0d2b52"/>
+  <!-- Schläger -->
+  <g transform="rotate(-35 256 256)">
+    <rect x="236" y="300" width="40" height="150" rx="16" fill="#e9eef5"/>
+    <rect x="236" y="410" width="40" height="40" rx="12" fill="#2fb7a4"/>
+    <ellipse cx="256" cy="200" rx="118" ry="140" fill="#2fb7a4"/>
+    <ellipse cx="256" cy="200" rx="96" ry="118" fill="#1f8f81"/>
+    <g fill="#0d2b52" opacity=".55">
+      <circle cx="216" cy="150" r="10"/><circle cx="256" cy="150" r="10"/><circle cx="296" cy="150" r="10"/>
+      <circle cx="196" cy="195" r="10"/><circle cx="236" cy="195" r="10"/><circle cx="276" cy="195" r="10"/><circle cx="316" cy="195" r="10"/>
+      <circle cx="216" cy="240" r="10"/><circle cx="256" cy="240" r="10"/><circle cx="296" cy="240" r="10"/>
+    </g>
+  </g>
+  <!-- Ball -->
+  <circle cx="370" cy="372" r="62" fill="#d9f43a"/>
+  <path d="M318 340c30 8 50 34 50 64M422 404c-30-8-50-34-50-64" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" opacity=".85"/>
+</svg>

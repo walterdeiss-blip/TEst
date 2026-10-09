@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d2b52">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Padel">
+  <title>Padel</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header id="top">
+    <h1><span class="ball"></span>Padel</h1>
+    <button id="btn-install" class="chip hidden">📲 Installieren</button>
+  </header>
+
+  <main>
+    <!-- 🎾 Zählen -->
+    <section id="tab-score" class="tab">
+      <div id="score-setup">
+        <h2>Neues Spiel</h2>
+        <div class="teams">
+          <fieldset class="team team-a">
+            <legend>Team A</legend>
+            <input id="n-a1" list="player-list" placeholder="Spieler 1" autocomplete="off">
+            <input id="n-a2" list="player-list" placeholder="Spieler 2" autocomplete="off">
+          </fieldset>
+          <fieldset class="team team-b">
+            <legend>Team B</legend>
+            <input id="n-b1" list="player-list" placeholder="Spieler 3" autocomplete="off">
+            <input id="n-b2" list="player-list" placeholder="Spieler 4" autocomplete="off">
+          </fieldset>
+        </div>
+        <label class="row">Aufschlag
+          <select id="opt-server">
+            <option value="0">Spieler 1 (Team A)</option>
+            <option value="2">Spieler 2 (Team A)</option>
+            <option value="1">Spieler 3 (Team B)</option>
+            <option value="3">Spieler 4 (Team B)</option>
+          </select>
+        </label>
+        <label class="row">Sätze
+          <select id="opt-sets">
+            <option value="3">Best of 3</option>
+            <option value="1">1 Satz</option>
+          </select>
+        </label>
+        <label class="row check"><input type="checkbox" id="opt-golden" checked> Golden Point bei 40:40</label>
+        <label class="row check"><input type="checkbox" id="opt-supertb"> 3. Satz als Match-Tiebreak (bis 10)</label>
+        <button id="btn-start" class="primary big">Spiel starten</button>
+        <p class="hint">Ohne Namen wird nur gezählt. Mit vier Namen kannst du das Ergebnis am Ende in die Rangliste übernehmen.</p>
+      </div>
+
+      <div id="score-live" class="hidden">
+        <div id="sb-status"></div>
+        <div id="sb-sets"></div>
+        <button class="sb-team team-a" data-team="0">
+          <span class="sb-names"></span>
+          <span class="sb-points"></span>
+          <span class="sb-games"></span>
+        </button>
+        <button class="sb-team team-b" data-team="1">
+          <span class="sb-names"></span>
+          <span class="sb-points"></span>
+          <span class="sb-games"></span>
+        </button>
+        <div class="sb-actions">
+          <button id="btn-undo" class="chip">↶ Rückgängig</button>
+          <button id="btn-end" class="chip">✕ Beenden</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 🏆 Rangliste -->
+    <section id="tab-rank" class="tab hidden">
+      <h2>Rangliste</h2>
+      <ol id="rank-list" class="cards"></ol>
+      <button id="btn-add-result" class="primary">＋ Ergebnis eintragen</button>
+
+      <h2>Letzte Spiele</h2>
+      <ul id="match-list" class="cards"></ul>
+
+      <h2>Spieler</h2>
+      <ul id="player-admin" class="cards"></ul>
+      <form id="form-player" class="inline">
+        <input id="new-player" placeholder="Name" autocomplete="off" required>
+        <button class="primary">Hinzufügen</button>
+      </form>
+
+      <h2>Daten</h2>
+      <p class="hint">Alles wird nur auf diesem Gerät gespeichert. Mit einer Sicherung kannst du die Daten auf ein anderes Handy übertragen.</p>
+      <div class="btnrow">
+        <button id="btn-export" class="chip">💾 Sicherung speichern</button>
+        <label class="chip filebtn">📂 Sicherung laden<input type="file" id="file-import" accept="application/json,.json"></label>
+      </div>
+    </section>
+
+    <!-- 🔄 Turnier -->
+    <section id="tab-tour" class="tab hidden">
+      <div id="tour-setup">
+        <h2>Americano / Mexicano</h2>
+        <div class="seg" id="tour-mode">
+          <button data-mode="americano" class="on">Americano</button>
+          <button data-mode="mexicano">Mexicano</button>
+        </div>
+        <p class="hint" id="tour-mode-hint"></p>
+        <form id="form-tour-player" class="inline">
+          <input id="tour-new" list="player-list" placeholder="Spieler hinzufügen" autocomplete="off">
+          <button class="primary">＋</button>
+        </form>
+        <div id="tour-chips" class="chips"></div>
+        <label class="row">Punkte pro Spiel
+          <select id="tour-pts">
+            <option>16</option><option>21</option><option selected>24</option><option>32</option>
+          </select>
+        </label>
+        <label class="row">Plätze
+          <input type="number" id="tour-courts" min="1" max="8" value="1">
+        </label>
+        <label class="row check"><input type="checkbox" id="tour-rank" checked> Spiele in die Rangliste übernehmen</label>
+        <button id="btn-tour-start" class="primary big">Turnier starten</button>
+      </div>
+
+      <div id="tour-live" class="hidden">
+        <h2 id="tour-title"></h2>
+        <div id="tour-rounds"></div>
+        <div class="btnrow">
+          <button id="btn-tour-next" class="primary">Nächste Runde</button>
+          <button id="btn-tour-finish" class="chip">🏁 Turnier beenden</button>
+        </div>
+        <h2>Tabelle</h2>
+        <table id="tour-table"></table>
+      </div>
+    </section>
+
+    <!-- 📅 Termine -->
+    <section id="tab-events" class="tab hidden">
+      <h2>Termine</h2>
+      <ul id="event-list" class="cards"></ul>
+      <button id="btn-new-event" class="primary">＋ Neuer Termin</button>
+      <details class="paste">
+        <summary>Link aus WhatsApp einfügen</summary>
+        <p class="hint">Falls sich ein Einladungs- oder Antwort-Link nicht direkt in der App öffnet, hier einfügen.</p>
+        <form id="form-paste" class="inline">
+          <input id="paste-link" placeholder="https://…#r=…" autocomplete="off">
+          <button class="primary">Übernehmen</button>
+        </form>
+      </details>
+    </section>
+  </main>
+
+  <nav id="tabs">
+    <button data-tab="score" class="on"><span>🎾</span>Zählen</button>
+    <button data-tab="rank"><span>🏆</span>Rangliste</button>
+    <button data-tab="tour"><span>🔄</span>Turnier</button>
+    <button data-tab="events"><span>📅</span>Termine</button>
+  </nav>
+
+  <datalist id="player-list"></datalist>
+
+  <dialog id="dlg">
+    <form method="dialog" id="dlg-form">
+      <div id="dlg-body"></div>
+      <div class="btnrow" id="dlg-buttons"></div>
+    </form>
+  </dialog>
+
+  <div id="toast"></div>
+
+  <script src="logic.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
