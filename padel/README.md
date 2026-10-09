@@ -35,6 +35,33 @@ und speichert alles nur auf dem eigenen Gerät. Ein Konto oder Server ist nicht 
 - Punkte eintippen; die Punkte des Gegners werden automatisch ergänzt. Die Tabelle aktualisiert sich live.
 - Auf Wunsch fließen alle Turnierspiele in die Rangliste ein.
 
+### 📍 Plätze in der Nähe
+- **Meinen Standort verwenden** oder einen Ort, eine PLZ oder Adresse eingeben.
+- Umkreis 5 / 10 / 25 / 50 km, sortieren nach Entfernung (und je nach Quelle nach Bewertung oder Anzahl Courts).
+- Jede Anlage mit Entfernung, Adresse, **Route** (Google Maps), Website, Telefon und **Termin hier**:
+  Damit legst du direkt einen Termin mit dieser Anlage als Ort an.
+- Karte mit allen Treffern; Antippen einer Anlage zeigt sie auf der Karte.
+- **Ohne Google-Schlüssel** sucht die App in OpenStreetMap (kostenlos; zeigt Anzahl Courts und Halle,
+  aber nicht jede Anlage ist dort eingetragen). Über **„Weitere in Google Maps“** öffnet sich die
+  Google-Suche für denselben Ort.
+- **Mit Google-Schlüssel** kommen die Ergebnisse von Google: mit Bewertungen, **„Jetzt geöffnet“**-Filter,
+  Website, Telefon und Google-Karte.
+
+#### Google-Suche einschalten
+1. In der [Google Cloud Console](https://console.cloud.google.com/) ein Projekt anlegen und ein
+   Abrechnungskonto verknüpfen (Google verlangt das auch für das kostenlose Kontingent).
+2. Unter *APIs & Dienste → Bibliothek* **„Places API (New)“** und **„Maps Embed API“** aktivieren.
+3. Unter *Anmeldedaten* einen **API-Schlüssel** erstellen und unbedingt einschränken:
+   - *Website-Einschränkung:* `https://walterdeiss-blip.github.io/*`
+   - *API-Einschränkung:* nur „Places API (New)“ und „Maps Embed API“
+4. Den Schlüssel in `padel/config.js` bei `googleApiKey` eintragen.
+
+Der Schlüssel steht danach öffentlich im Quelltext. Das ist bei Browser-Schlüsseln normal, deshalb ist
+die Einschränkung auf die eigene Website so wichtig. Die Maps Embed API (Karte) ist kostenlos. Für die
+Places-Suche gibt es ein monatliches Freikontingent, darüber hinaus wird sie berechnet
+([aktuelle Preise](https://mapsplatform.google.com/pricing/)). Am besten in der Cloud Console unter
+*Kontingente* ein Tageslimit und unter *Abrechnung* eine Budgetwarnung setzen.
+
 ### 📅 Termine
 - Termin anlegen (Datum, Uhrzeit, Club, Anzahl Plätze) und per **WhatsApp & Co.** einladen.
 - Die Eingeladenen tippen auf den Link und sagen zu, vielleicht oder ab. Ihre Antwort wird als Link
@@ -51,7 +78,10 @@ und speichert alles nur auf dem eigenen Gerät. Ein Konto oder Server ist nicht 
 
 - `index.html`, `style.css` – Aufbau und Glas-Design (Symbole als SVG-Sprite in `index.html`)
 - `img/` – Padel-Illustrationen (Schläger, Pokal, Turnier-Platz, Kalender) und Platzlinien für den Hintergrund
+- `courts.js` – Court-Suche: Google Places / OpenStreetMap, Entfernungen, Zusammenfassen von Courts zu Anlagen
+- `config.js` – Einstellungen (Google-API-Schlüssel)
+- `vendor/leaflet.*` – Leaflet 1.9.4 für die OpenStreetMap-Karte (BSD-2-Lizenz, siehe `vendor/leaflet-LICENSE`)
 - `logic.js` – Zählregeln, Elo-Rangliste, Turnier-Paarungen, Einladungslinks (ohne Oberfläche, getestet)
 - `app.js` – Oberfläche und Speicherung (localStorage)
 - `sw.js`, `manifest.webmanifest`, `icon.svg`, `icons/` – installierbare, offline nutzbare Web-App
-- `test/logic.test.js` – Tests: `node --test padel/test/*.test.js`
+- `test/` – Tests: `node --test padel/test/*.test.js`

@@ -45,6 +45,13 @@
       <symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5M5 21h14"/></symbol>
       <symbol id="i-play" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.9l10-6.5a1 1 0 0 0 0-1.7l-10-6.5A1 1 0 0 0 8 5.5z"/></symbol>
       <symbol id="i-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+      <symbol id="i-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.6"/></symbol>
+      <symbol id="i-locate" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></symbol>
+      <symbol id="i-route" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-8-8 18-2-8z"/></symbol>
+      <symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+      <symbol id="i-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></symbol>
+      <symbol id="i-star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3L2.9 9.5l6.3-.9z"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
     </defs>
   </svg>
 
@@ -216,6 +223,46 @@
       </div>
     </section>
 
+    <!-- 📍 Plätze -->
+    <section id="tab-courts" class="tab hidden">
+      <div class="hero glass">
+        <div>
+          <p class="eyebrow">Court-Suche</p>
+          <h2>Plätze in der Nähe</h2>
+          <p class="hint">Padel-Anlagen finden, Route starten, Termin anlegen.</p>
+        </div>
+        <img src="img/hero-courts.svg" alt="">
+      </div>
+      <div class="glass pad search-box">
+        <button id="btn-locate" class="primary wide"><svg class="ico"><use href="#i-locate"/></svg>Meinen Standort verwenden</button>
+        <div class="or"><span>oder</span></div>
+        <form id="form-place" class="inline">
+          <input id="place-input" placeholder="Ort, PLZ oder Adresse" autocomplete="off" enterkeyhint="search">
+          <button class="primary" aria-label="Suchen"><svg class="ico"><use href="#i-search"/></svg></button>
+        </form>
+      </div>
+      <div class="glass options">
+        <label class="row">Umkreis
+          <select id="court-radius">
+            <option value="5">5 km</option><option value="10" selected>10 km</option><option value="25">25 km</option><option value="50">50 km</option>
+          </select>
+        </label>
+        <label class="row">Sortieren
+          <select id="court-sort">
+            <option value="distance">Entfernung</option>
+            <option value="rating" data-google>Bewertung</option>
+            <option value="courts" data-osm>Anzahl Courts</option>
+          </select>
+        </label>
+        <label class="row check" id="row-open">Nur jetzt geöffnet<input type="checkbox" class="switch" id="court-open"></label>
+      </div>
+      <p id="courts-status" class="hint center"></p>
+      <div id="courts-map" class="map glass hidden"></div>
+      <ul id="courts-list" class="cards"></ul>
+      <p id="courts-source" class="hint attribution"></p>
+      <a id="btn-gmaps" class="chip hidden" target="_blank" rel="noopener"><svg class="ico"><use href="#i-pin"/></svg>Weitere in Google Maps</a>
+    </section>
+
     <!-- 📅 Termine -->
     <section id="tab-events" class="tab hidden">
       <div class="hero glass">
@@ -243,6 +290,7 @@
     <button data-tab="score" class="on"><svg class="ico"><use href="#i-racket"/></svg>Zählen</button>
     <button data-tab="rank"><svg class="ico"><use href="#i-trophy"/></svg>Rangliste</button>
     <button data-tab="tour"><svg class="ico"><use href="#i-rotate"/></svg>Turnier</button>
+    <button data-tab="courts"><svg class="ico"><use href="#i-pin"/></svg>Plätze</button>
     <button data-tab="events"><svg class="ico"><use href="#i-calendar"/></svg>Termine</button>
   </nav>
 
@@ -257,7 +305,9 @@
 
   <div id="toast"></div>
 
+  <script src="config.js"></script>
   <script src="logic.js"></script>
+  <script src="courts.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

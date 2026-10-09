@@ -89,7 +89,7 @@ function refreshPlayerList() {
 function showTab(name) {
   $$('.tab').forEach(t => t.classList.toggle('hidden', t.id !== 'tab-' + name));
   $$('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
-  ({ score: renderScore, rank: renderRank, tour: renderTour, events: renderEvents })[name]();
+  ({ score: renderScore, rank: renderRank, tour: renderTour, courts: renderCourts, events: renderEvents })[name]();
   try { sessionStorage.setItem('padel-tab', name); } catch (e) { /* egal */ }
   window.scrollTo(0, 0);
 }
@@ -503,6 +503,230 @@ function renderTourTable() {
     st.map((s, i) => `<tr><td>${i + 1}</td><td>${esc(pname(s.id))}</td><td>${s.pts}</td><td>${s.played}</td><td>${s.won}</td><td>${s.diff > 0 ? '+' : ''}${s.diff}</td></tr>`).join('');
 }
 
+/* ---------- 📍 Plätze ---------- */
+
+const PC = window.PadelCourts;
+// Leaflet meldet sich als window.L an – L ist hier schon die Spiellogik
+const Leaflet = () => window.L;
+const GKEY = (window.PADEL_CONFIG || {}).googleApiKey || '';
+const cs = { center: null, label: '', results: [], selected: null, map: null, layer: null, busy: false };
+
+function courtPrefs() {
+  return Object.assign({ radius: 10, sort: 'distance', label: '' }, db.courtPrefs);
+}
+
+function setCourtStatus(html) {
+  $('#courts-status').innerHTML = html;
+}
+
+// Lädt Leaflet erst, wenn die Karte gebraucht wird.
+let leafletLoading = null;
+function loadLeaflet() {
+  if (window.L) return Promise.resolve();
+  if (leafletLoading) return leafletLoading;
+  const css = document.createElement('link');
+  css.rel = 'stylesheet';
+  css.href = 'vendor/leaflet.css';
+  document.head.appendChild(css);
+  leafletLoading = new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'vendor/leaflet.js';
+    s.onload = res;
+    s.onerror = () => { leafletLoading = null; rej(new Error('Karte konnte nicht geladen werden')); };
+    document.head.appendChild(s);
+  });
+  return leafletLoading;
+}
+
+function locate() {
+  return new Promise((res, rej) => {
+    if (!navigator.geolocation) return rej(new Error('Dein Gerät kann keinen Standort liefern'));
+    navigator.geolocation.getCurrentPosition(
+      p => res({ lat: p.coords.latitude, lng: p.coords.longitude, label: 'Dein Standort' }),
+      err => rej(new Error(err.code === 1
+        ? 'Standort nicht freigegeben – erlaube ihn in den Einstellungen oder gib einen Ort ein'
+        : 'Standort nicht gefunden – gib einen Ort ein')),
+      { enableHighAccuracy: false, timeout: 12000, maximumAge: 300000 });
+  });
+}
+
+async function runCourtSearch(getCenter) {
+  if (cs.busy) return;
+  cs.busy = true;
+  setCourtStatus('<span class="spinner"></span>Suche Padel-Anlagen …');
+  $('#courts-list').innerHTML = '';
+  try {
+    const center = await getCenter();
+    if (!center) throw new Error('Ort nicht gefunden – versuch es mit PLZ oder Stadt');
+    const radius = +$('#court-radius').value;
+    cs.center = center;
+    cs.label = center.label;
+    cs.selected = null;
+    cs.results = GKEY ? await PC.searchGoogle(GKEY, center, radius) : await PC.searchOsm(center, radius);
+    db.courtPrefs = { ...courtPrefs(), radius, label: center.label === 'Dein Standort' ? courtPrefs().label : center.label };
+    save();
+    renderCourts();
+  } catch (e) {
+    setCourtStatus(esc(e.message || 'Suche fehlgeschlagen'));
+  } finally {
+    cs.busy = false;
+  }
+}
+
+$('#btn-locate').addEventListener('click', () => runCourtSearch(locate));
+
+$('#form-place').addEventListener('submit', e => {
+  e.preventDefault();
+  const text = $('#place-input').value.trim();
+  if (!text) return toast('Bitte einen Ort eingeben');
+  $('#place-input').blur();
+  runCourtSearch(() => GKEY ? PC.geocodeGoogle(GKEY, text) : PC.geocodeOsm(text));
+});
+
+$('#court-radius').addEventListener('change', () => {
+  if (cs.center) runCourtSearch(async () => cs.center);
+});
+$('#court-sort').addEventListener('change', () => {
+  db.courtPrefs = { ...courtPrefs(), sort: $('#court-sort').value };
+  save();
+  renderCourts();
+});
+$('#court-open').addEventListener('change', renderCourts);
+
+function visibleCourts() {
+  const list = PC.filterCourts(cs.results, { radiusKm: +$('#court-radius').value, openNow: GKEY && $('#court-open').checked });
+  return PC.sortCourts(list, $('#court-sort').value);
+}
+
+function courtCard(c) {
+  const tags = [];
+  if (c.rating) tags.push(`<span class="tag star">${ico('star')}${c.rating.toFixed(1).replace('.', ',')}${c.ratings ? ` <span class="sub">(${c.ratings})</span>` : ''}</span>`);
+  if (c.openNow === true) tags.push('<span class="tag open">Jetzt geöffnet</span>');
+  if (c.openNow === false) tags.push('<span class="tag closed">Geschlossen</span>');
+  if (c.courts) tags.push(`<span class="tag">${c.courts} Court${c.courts === 1 ? '' : 's'}</span>`);
+  if (c.indoor) tags.push('<span class="tag">Halle</span>');
+  const link = (href, icon, label, extra = '') => `<a class="chip" href="${esc(href)}" target="_blank" rel="noopener" ${extra}>${ico(icon)}${label}</a>`;
+  return `<li class="court-card ${cs.selected === c.id ? 'sel' : ''}" data-court="${esc(c.id)}">
+    <div class="top">
+      <div class="grow">
+        <div class="name">${esc(c.name)}</div>
+        ${c.address ? `<div class="sub">${esc(c.address)}</div>` : ''}
+      </div>
+      <span class="dist">${PC.fmtKm(c.distance)}</span>
+    </div>
+    ${tags.length ? `<div class="tags">${tags.join('')}</div>` : ''}
+    <div class="btnrow">
+      ${link(PC.routeUrl(c), 'route', 'Route')}
+      ${c.website ? link(c.website, 'globe', 'Website') : ''}
+      ${c.phone ? `<a class="chip icon" href="tel:${esc(c.phone.replace(/[^\d+]/g, ''))}" aria-label="Anrufen">${ico('phone')}</a>` : ''}
+      <button class="chip" data-plan="${esc(c.id)}">${ico('cal-add')}Termin hier</button>
+    </div>
+  </li>`;
+}
+
+function renderCourts() {
+  const p = courtPrefs();
+  $('#court-sort').value = p.sort;
+  $$('#court-sort option[data-google]').forEach(o => { o.hidden = !GKEY; });
+  $$('#court-sort option[data-osm]').forEach(o => { o.hidden = !!GKEY; });
+  if ($('#court-sort').selectedOptions[0]?.hidden) $('#court-sort').value = 'distance';
+  $('#row-open').classList.toggle('hidden', !GKEY);
+  if (!$('#place-input').value && p.label) $('#place-input').value = p.label;
+
+  if (!cs.center) {
+    setCourtStatus(cs.busy ? $('#courts-status').innerHTML : '');
+    $('#courts-map').classList.add('hidden');
+    $('#btn-gmaps').classList.add('hidden');
+    $('#courts-source').innerHTML = '';
+    return;
+  }
+  const list = visibleCourts();
+  setCourtStatus(list.length
+    ? `<b>${list.length}</b> Anlage${list.length === 1 ? '' : 'n'} im Umkreis von ${$('#court-radius').value} km um ${esc(cs.label)}`
+    : `Keine Padel-Anlage im Umkreis von ${$('#court-radius').value} km gefunden – vergrößere den Umkreis oder schau in Google Maps.`);
+  $('#courts-list').innerHTML = list.map(courtCard).join('');
+  $('#btn-gmaps').href = PC.googleMapsSearchUrl(cs.center);
+  $('#btn-gmaps').classList.remove('hidden');
+  $('#courts-source').innerHTML = GKEY
+    ? 'Ergebnisse von Google'
+    : 'Daten © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>-Mitwirkende · nicht jede Anlage ist eingetragen';
+  renderCourtMap(list);
+}
+
+async function renderCourtMap(list) {
+  const box = $('#courts-map');
+  box.classList.remove('hidden');
+  if (GKEY) {
+    const sel = cs.results.find(c => c.id === cs.selected);
+    const src = PC.embedUrl(GKEY, cs.center, sel);
+    let frame = box.querySelector('iframe');
+    if (!frame) {
+      box.innerHTML = '<iframe loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen title="Karte"></iframe>';
+      frame = box.querySelector('iframe');
+    }
+    if (frame.getAttribute('src') !== src) frame.src = src;
+    return;
+  }
+  try {
+    await loadLeaflet();
+  } catch (e) {
+    box.classList.add('hidden');
+    return;
+  }
+  if (!cs.map) {
+    cs.map = Leaflet().map(box, { zoomControl: false, attributionControl: true });
+    Leaflet().tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '© OpenStreetMap',
+    }).addTo(cs.map);
+    cs.layer = Leaflet().layerGroup().addTo(cs.map);
+  }
+  cs.layer.clearLayers();
+  cs.markers = {};
+  Leaflet().marker([cs.center.lat, cs.center.lng], { icon: Leaflet().divIcon({ className: '', html: '<div class="me-dot"></div>', iconSize: [18, 18] }) }).addTo(cs.layer);
+  list.forEach(c => {
+    const m = Leaflet().marker([c.lat, c.lng], {
+      icon: Leaflet().divIcon({ className: '', html: `<div class="court-pin ${cs.selected === c.id ? 'sel' : ''}"></div>`, iconSize: [30, 30], iconAnchor: [15, 30], popupAnchor: [0, -28] }),
+    }).addTo(cs.layer).bindPopup(esc(c.name));
+    m.on('click', () => selectCourt(c.id, true));
+    cs.markers[c.id] = m;
+  });
+  const pts = [[cs.center.lat, cs.center.lng], ...list.map(c => [c.lat, c.lng])];
+  setTimeout(() => {
+    cs.map.invalidateSize();
+    if (!cs.selected) {
+      if (pts.length > 1) cs.map.fitBounds(pts, { padding: [30, 30], maxZoom: 14 });
+      else cs.map.setView(pts[0], 12);
+    }
+  }, 50);
+}
+
+function selectCourt(id, fromMap) {
+  cs.selected = id;
+  const c = cs.results.find(x => x.id === id);
+  $$('.court-card').forEach(li => li.classList.toggle('sel', li.dataset.court === id));
+  if (GKEY) {
+    renderCourtMap(visibleCourts());
+  } else if (cs.map && c) {
+    Object.entries(cs.markers || {}).forEach(([mid, m]) => m.getElement()?.firstElementChild?.classList.toggle('sel', mid === id));
+    cs.map.flyTo([c.lat, c.lng], Math.max(cs.map.getZoom(), 14), { duration: .6 });
+    cs.markers[id]?.openPopup();
+  }
+  if (fromMap) $(`.court-card[data-court="${CSS.escape(id)}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  else $('#courts-map').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+$('#courts-list').addEventListener('click', e => {
+  if (e.target.closest('a')) return;
+  const plan = e.target.closest('[data-plan]');
+  if (plan) {
+    const c = cs.results.find(x => x.id === plan.dataset.plan);
+    if (c) eventDialog(null, { place: [c.name, c.address].filter(Boolean).join(', ') });
+    return;
+  }
+  const li = e.target.closest('.court-card');
+  if (li) selectCourt(li.dataset.court, false);
+});
+
 /* ---------- 📅 Termine ---------- */
 
 const appUrl = () => location.origin + location.pathname;
@@ -540,9 +764,9 @@ function replyText(ev, name, s) {
   return `${STATUS[s].label} – ${name}\n🎾 ${ev.title}, ${fmtDate(ev.date, ev.time)}\n\n${ev.org ? ev.org + ', t' : 'T'}ipp auf den Link, dann steht es in deiner Padel-App:\n${link}`;
 }
 
-async function eventDialog(ev) {
+async function eventDialog(ev, preset = {}) {
   const isNew = !ev;
-  ev = ev || { title: 'Padel', date: '', time: '19:00', place: '', max: 4 };
+  ev = ev || { title: 'Padel', date: '', time: '19:00', place: '', max: 4, ...preset };
   const v = await ask(`<h3>${isNew ? 'Neuer Termin' : 'Termin bearbeiten'}</h3>
     <label class="field">Titel<input id="e-title" value="${esc(ev.title)}" required></label>
     <div class="grid2">
@@ -571,6 +795,7 @@ async function eventDialog(ev) {
   } else Object.assign(ev, data);
   save();
   renderEvents();
+  if (isNew && preset.place) showTab('events');
   if (isNew && await confirmAsk('Termin erstellt! Jetzt Einladung per WhatsApp & Co. verschicken?', 'Einladen')) shareText(inviteText(ev));
 }
 
