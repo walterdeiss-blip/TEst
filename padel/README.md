@@ -18,13 +18,18 @@ und speichert alles nur auf dem eigenen Gerät. Ein Konto oder Server ist nicht 
 - 🎾 zeigt, wer aufschlägt (Reihenfolge A1 → B1 → A2 → B2, im Tiebreak nach jedem 2. Punkt).
 - Hinweis bei **Seitenwechsel**, der Bildschirm bleibt während des Spiels an.
 - **Schnellauswahl:** bekannte Spieler antippen statt Namen tippen (zuletzt aktive zuerst).
-- **Regeln:** Spickzettel mit den wichtigsten Padel-Regeln (Aufschlag, Wände, Zählweise).
+- **Wissen:** Schlag-Lexikon mit Diagrammen (Seitenansicht des Courts mit Ballflugbahn) für Volea, Globo,
+  Bandeja, Víbora, Remate por tres, Bajada de pared, Chiquita und Salida de pared – plus Regel-Spickzettel.
 - **Faire Teams:** verteilt vier Spieler nach Elo auf zwei möglichst gleich starke Teams
   (mit Siegchance); **Zufällig** lost die Teams aus.
 - **Spielstand ansagen:** Das Handy sagt nach jedem Punkt den Stand an (Aufschläger zuerst,
   „Einstand“, „Vorteil …“, „Spiel …“, Seitenwechsel). Während des Spiels mit dem Lautsprecher-Knopf an/aus.
 - **Spieldauer** läuft auf der Anzeigetafel mit und wird mit dem Ergebnis gespeichert.
 - Ergebnis per **Teilen** an WhatsApp & Co. schicken.
+- **Matchstatistik** am Ende: Punkte, gehaltene Aufschlagspiele, Breaks, längste Punkteserie, Golden Points
+  und eine **Momentum-Kurve**, die zeigt, wer wann geführt hat. Gespeicherte Spiele lassen sich unter
+  „Letzte Spiele“ antippen und zeigen die Statistik erneut.
+- **Siegesfeier** mit Konfetti und Padelbällen.
 - Am Ende kann das Ergebnis in die Rangliste übernommen werden.
 
 ### 🏆 Rangliste
@@ -34,6 +39,10 @@ und speichert alles nur auf dem eigenen Gerät. Ein Konto oder Server ist nicht 
 - **Zeitraum:** Rangliste gesamt, für die letzten 30 Tage oder das laufende Jahr.
 - **Spielerprofil** (Spieler antippen): Elo-Verlauf als Kurve (antippen/ziehen zeigt den Wert nach
   jedem Spiel), aktuelle und beste Siegesserie, bester Partner, Angstgegner und Bilanz mit jedem Partner.
+- **Abzeichen:** Erster Sieg, Heißer Lauf (3 Siege in Folge), Unaufhaltsam (5), Bagel (6:0), Comeback,
+  Riesentöter (Sieg gegen 100+ Elo stärkere Gegner), Marathon (90+ Minuten), Teamplayer (5 Partner),
+  Stammspieler (10 Matches), Court-Veteran (50) und Turniersieger. Neue Abzeichen werden nach dem Spiel
+  gefeiert; im Profil siehst du alle, gesperrte grau mit Schloss.
 - Ergebnisse auch nachträglich eintragen und löschen; Spieler umbenennen.
 - **Sicherung** als Datei speichern und auf einem anderen Handy laden.
 
@@ -93,7 +102,8 @@ Places-Suche gibt es ein monatliches Freikontingent, darüber hinaus wird sie be
 ## Dateien
 
 - `index.html`, `style.css` – Aufbau und Glas-Design (Symbole als SVG-Sprite in `index.html`)
-- `img/` – Padel-Illustrationen (Schläger, Pokal, Turnier-Platz, Kalender) und Platzlinien für den Hintergrund
+- `img/` – Padel-Illustrationen (Schläger, Pokal, Turnier-Platz, Kalender, Karte, leerer Court) und Platzlinien
+- `graphics.js` – Abzeichen-Grafiken, Schlag-Diagramme, Momentum-Kurve, Konfetti
 - `courts.js` – Court-Suche: Google Places / OpenStreetMap, Entfernungen, Zusammenfassen von Courts zu Anlagen
 - `config.js` – Einstellungen (Google-API-Schlüssel)
 - `vendor/leaflet.*` – Leaflet 1.9.4 für die OpenStreetMap-Karte (BSD-2-Lizenz, siehe `vendor/leaflet-LICENSE`)

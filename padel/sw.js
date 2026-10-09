@@ -1,7 +1,7 @@
 /* Padel – Service Worker: macht die App installierbar und offline nutzbar. */
 'use strict';
 
-const VERSION = 'padel-v6';
+const VERSION = 'padel-v7';
 const CORE = [
   './',
   'index.html',
@@ -9,6 +9,7 @@ const CORE = [
   'config.js',
   'logic.js',
   'courts.js',
+  'graphics.js',
   'app.js',
   'manifest.webmanifest',
   'icon.svg',
@@ -21,6 +22,7 @@ const CORE = [
   'img/hero-tour.svg',
   'img/hero-events.svg',
   'img/hero-courts.svg',
+  'img/empty.svg',
 ];
 
 self.addEventListener('install', e => {

@@ -131,6 +131,93 @@
     return `${m.sets.length + 1}. Satz`;
   }
 
+  /* ---------- Matchstatistik aus dem Punkteverlauf ---------- */
+
+  // Wer hat den Punkt zwischen zwei Spielständen gewonnen?
+  function pointWinner(a, b) {
+    if (b.sets.length > a.sets.length) {
+      const g = b.sets[b.sets.length - 1].g;
+      return g[0] > g[1] ? 0 : 1;
+    }
+    if (b.games[0] > a.games[0]) return 0;
+    if (b.games[1] > a.games[1]) return 1;
+    return b.points[0] > a.points[0] ? 0 : 1;
+  }
+
+  function matchStats(m) {
+    const states = m.history.map(h => JSON.parse(h));
+    states.push(m);
+    const st = {
+      points: [0, 0], serveGames: [0, 0], serveHeld: [0, 0], breaks: [0, 0], run: [0, 0],
+      golden: [0, 0], momentum: [0], setEnds: [],
+    };
+    let cur = -1, len = 0;
+    for (let i = 0; i < states.length - 1; i++) {
+      const a = states[i], b = states[i + 1];
+      const w = pointWinner(a, b);
+      st.points[w]++;
+      st.momentum.push(st.momentum[st.momentum.length - 1] + (w === 0 ? 1 : -1));
+      len = w === cur ? len + 1 : 1;
+      cur = w;
+      st.run[w] = Math.max(st.run[w], len);
+      if (!a.tb && a.cfg.golden && a.points[0] === 3 && a.points[1] === 3) st.golden[w]++;
+      const gameDone = b.sets.length > a.sets.length || b.games[0] !== a.games[0] || b.games[1] !== a.games[1];
+      if (gameDone && !a.tb) {
+        const srv = serveTeam(a.server);
+        st.serveGames[srv]++;
+        if (w === srv) st.serveHeld[srv]++; else st.breaks[w]++;
+      }
+      if (b.sets.length > a.sets.length) st.setEnds.push(i + 1);
+    }
+    return st;
+  }
+
+  /* ---------- Abzeichen ---------- */
+
+  const BADGES = [
+    { id: 'first', name: 'Erster Sieg', desc: 'Das erste Match gewonnen', icon: 'star', tier: 1 },
+    { id: 'streak3', name: 'Heißer Lauf', desc: '3 Siege in Folge', icon: 'flame', tier: 2 },
+    { id: 'streak5', name: 'Unaufhaltsam', desc: '5 Siege in Folge', icon: 'flame', tier: 3 },
+    { id: 'bagel', name: 'Bagel', desc: 'Einen Satz 6:0 gewonnen', icon: 'bagel', tier: 2 },
+    { id: 'comeback', name: 'Comeback', desc: 'Ersten Satz verloren und trotzdem gewonnen', icon: 'comeback', tier: 3 },
+    { id: 'giant', name: 'Riesentöter', desc: 'Gegen ein Team mit 100+ Elo mehr gewonnen', icon: 'giant', tier: 3 },
+    { id: 'marathon', name: 'Marathon', desc: 'Ein Match über 90 Minuten', icon: 'clock', tier: 2 },
+    { id: 'team5', name: 'Teamplayer', desc: 'Mit 5 verschiedenen Partnern gespielt', icon: 'users', tier: 2 },
+    { id: 'games10', name: 'Stammspieler', desc: '10 Matches gespielt', icon: 'racket', tier: 1 },
+    { id: 'games50', name: 'Court-Veteran', desc: '50 Matches gespielt', icon: 'racket', tier: 3 },
+    { id: 'champ', name: 'Turniersieger', desc: 'Ein Americano/Mexicano gewonnen', icon: 'trophy', tier: 3 },
+  ];
+
+  // Liefert die IDs aller Abzeichen, die ein Spieler hat.
+  function badgesFor(id, players, matches, trophies = []) {
+    const before = {};
+    ranking(players, matches, before);
+    const got = new Set();
+    const mine = [...matches].filter(m => m.a.includes(id) || m.b.includes(id)).sort((x, y) => x.ts - y.ts);
+    const partners = new Set();
+    let streak = 0;
+    mine.forEach(m => {
+      const inA = m.a.includes(id);
+      const won = m.win !== null && m.win !== undefined && (m.win === 0) === inA;
+      const own = s => inA ? s.g[0] : s.g[1], opp = s => inA ? s.g[1] : s.g[0];
+      (inA ? m.a : m.b).filter(p => p !== id).forEach(p => partners.add(p));
+      streak = won ? streak + 1 : 0;
+      if (won) got.add('first');
+      if (streak >= 3) got.add('streak3');
+      if (streak >= 5) got.add('streak5');
+      if (m.kind === 'match' && m.sets.some(s => !s.super && own(s) === 6 && opp(s) === 0)) got.add('bagel');
+      if (won && m.kind === 'match' && m.sets.length >= 2 && own(m.sets[0]) < opp(m.sets[0])) got.add('comeback');
+      const e = before[m.id];
+      if (won && e && (inA ? e.rb - e.ra : e.ra - e.rb) >= 100) got.add('giant');
+      if ((m.dur || 0) >= 90) got.add('marathon');
+    });
+    if (partners.size >= 5) got.add('team5');
+    if (mine.length >= 10) got.add('games10');
+    if (mine.length >= 50) got.add('games50');
+    if (trophies.some(t => t.winner === id)) got.add('champ');
+    return BADGES.filter(b => got.has(b.id)).map(b => b.id);
+  }
+
   /* ---------- Sprachansage ---------- */
 
   const SPOKEN = { '0': 'null', '15': 'fünfzehn', '30': 'dreißig', '40': 'vierzig' };
@@ -169,7 +256,7 @@
   const ELO_K = 32;
 
   // Spielt alle Ergebnisse in zeitlicher Reihenfolge durch und berechnet Wertung und Statistik.
-  function ranking(players, matches) {
+  function ranking(players, matches, before = null) {
     const st = {};
     players.forEach(p => {
       st[p.id] = { id: p.id, name: p.name, elo: ELO_START, played: 0, won: 0, lost: 0, drawn: 0, trend: [], history: [ELO_START] };
@@ -179,6 +266,7 @@
       if (!ids.every(id => st[id])) return;
       const ra = (st[mt.a[0]].elo + st[mt.a[1]].elo) / 2;
       const rb = (st[mt.b[0]].elo + st[mt.b[1]].elo) / 2;
+      if (before) before[mt.id] = { ra, rb };
       const ea = 1 / (1 + Math.pow(10, (rb - ra) / 400));
       const sa = mt.win === 0 ? 1 : mt.win === 1 ? 0 : 0.5;
       const d = ELO_K * (sa - ea);
@@ -381,7 +469,7 @@
 
   root.PadelLogic = {
     newMatch, addPoint, undo, pointLabels, statusText, currentServer, serveTeam, servePlayer, setsWon,
-    announce, splitCost, fmtEuro, addDays, weeklyDates, ranking, playerStats, fairTeams, ELO_START, standings, nextRound, shuffle, encode, decode, parseLink,
+    matchStats, BADGES, badgesFor, announce, splitCost, fmtEuro, addDays, weeklyDates, ranking, playerStats, fairTeams, ELO_START, standings, nextRound, shuffle, encode, decode, parseLink,
   };
   if (typeof module !== 'undefined') module.exports = root.PadelLogic;
 })(typeof window !== 'undefined' ? window : globalThis);

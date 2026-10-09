@@ -2,6 +2,7 @@
 'use strict';
 
 const L = window.PadelLogic;
+const G = window.PadelGraphics;
 const $ = sel => document.querySelector(sel);
 const $$ = sel => [...document.querySelectorAll(sel)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -211,9 +212,26 @@ const RULES = [
     'Aufschlag reihum: A1 → B1 → A2 → B2.',
   ]],
 ];
-$('#btn-rules').addEventListener('click', () => ask(`<h3>Padel-Regeln kurz</h3>${RULES.map(([title, items]) =>
-  `<h4 class="mini">${title}</h4><ul class="rules">${items.map(t => `<li>${esc(t)}</li>`).join('')}</ul>`).join('')}`,
-[{ label: 'Alles klar', value: 'ok', cls: 'primary' }]));
+$('#btn-rules').addEventListener('click', async () => {
+  const p = ask(`<h3>Padel-Wissen</h3>
+    <div class="seg know-seg"><button type="button" data-k="strokes" class="on">Schläge</button><button type="button" data-k="rules">Regeln</button></div>
+    <div class="know" data-pane="strokes">${G.STROKES.map(st => `<div class="stroke">
+      ${G.strokeSvg(st)}
+      <div class="stroke-text"><b>${esc(st.name)}</b> <span class="sub">${esc(st.de)}</span>
+        <p>${esc(st.text)}</p><p class="tip">${ico('star')}${esc(st.tip)}</p></div>
+    </div>`).join('')}
+      <p class="hint legend"><span class="lg-out"></span> eigener Schlag <span class="lg-in"></span> ankommender Ball · links ihr, rechts die Gegner</p>
+    </div>
+    <div class="know hidden" data-pane="rules">${RULES.map(([title, items]) =>
+      `<h4 class="mini">${title}</h4><ul class="rules">${items.map(t => `<li>${esc(t)}</li>`).join('')}</ul>`).join('')}</div>`,
+  [{ label: 'Alles klar', value: 'ok', cls: 'primary' }]);
+  $$('.know-seg button').forEach(b => b.addEventListener('click', () => {
+    $$('.know-seg button').forEach(x => x.classList.toggle('on', x === b));
+    $$('.know').forEach(k => k.classList.toggle('hidden', k.dataset.pane !== b.dataset.k));
+    $('#dlg').scrollTop = 0;
+  }));
+  await p;
+});
 
 /* Sprachansage */
 function say(text) {
@@ -291,26 +309,101 @@ async function finishMatch() {
   const canSave = raw.every(Boolean) && new Set(raw.map(n => n.toLowerCase())).size === 4;
   const w = m.winner;
   const dur = m.started ? Math.max(1, Math.round(((m.ended || Date.now()) - m.started) / 60000)) : null;
+  const stats = compactStats(L.matchStats(m));
   const html = `<img class="dlg-art" src="img/hero-rank.svg" alt="">
     <h3 style="text-align:center">${esc(names[w].join(' & '))} gewinnt!</h3>
     <p class="result-big">${esc(setsText(m.sets))}</p>
     ${dur ? `<p class="hint center">Spieldauer ${fmtMin(dur)}</p>` : ''}
+    ${statsHtml(stats, names)}
     ${canSave ? '' : '<p class="hint">Für die Rangliste vier verschiedene Namen eingeben.</p>'}`;
+
   const buttons = [{ label: 'Zurück', value: 'back' }, { label: 'Teilen', value: 'share' }, { label: canSave ? 'Nicht speichern' : 'Fertig', value: 'drop' }];
   if (canSave) buttons.push({ label: 'In Rangliste speichern', value: 'save', cls: 'primary' });
   let v;
-  while ((v = await ask(html, buttons)) === 'share') {
+  const open = () => {
+    const p = ask(html, buttons);
+    bindMomentum(stats);
+    if (!m.celebrated) {
+      m.celebrated = true;
+      save();
+      G.confetti();
+    }
+    return p;
+  };
+  while ((v = await open()) === 'share') {
     await shareText(`🎾 ${names[w].join(' & ')} gewinnen gegen ${names[1 - w].join(' & ')}\n${setsText(m.sets)}${dur ? ` · ${fmtMin(dur)}` : ''}`);
   }
   if (v === 'back' || v === '') return;
+  let before = null;
   if (v === 'save') {
     const ids = raw.map(ensurePlayer);
-    db.matches.push({ id: uid(), ts: Date.now(), a: ids.slice(0, 2), b: ids.slice(2), sets: m.sets, win: w, kind: 'match', dur });
+    before = badgeSnapshot(ids);
+    db.matches.push({ id: uid(), ts: Date.now(), a: ids.slice(0, 2), b: ids.slice(2), sets: m.sets, win: w, kind: 'match', dur, stats });
     toast('✅ In der Rangliste gespeichert');
   }
   db.live = null;
   save();
   renderScore();
+  if (before) announceBadges(before);
+}
+
+/* Matchstatistik */
+function compactStats(st) {
+  if (!st.momentum || st.momentum.length < 2) return null;
+  return st;
+}
+
+function statsHtml(st, names) {
+  if (!st) return '';
+  const row = (label, a, b, fmt = x => x) => {
+    const sum = (a + b) || 1;
+    return `<div class="cmp"><b>${fmt(a, 0)}</b><span>${label}</span><b>${fmt(b, 1)}</b>
+      <div class="cmp-bar"><i class="a" style="width:${100 * a / sum}%"></i><i class="b" style="width:${100 * b / sum}%"></i></div></div>`;
+  };
+  const held = (x, t) => `${x}/${st.serveGames[t]}`;
+  return `<div class="match-stats">
+    <div class="cmp-head"><span class="ta">${esc(names[0].join(' & '))}</span><span class="tb">${esc(names[1].join(' & '))}</span></div>
+    ${row('Punkte', st.points[0], st.points[1])}
+    ${row('Aufschlag gehalten', st.serveHeld[0], st.serveHeld[1], held)}
+    ${row('Breaks', st.breaks[0], st.breaks[1])}
+    ${row('Längste Punkteserie', st.run[0], st.run[1])}
+    ${st.golden[0] + st.golden[1] ? row('Golden Points', st.golden[0], st.golden[1]) : ''}
+    <h4 class="mini">Momentum</h4>
+    <div class="chart-wrap">${G.momentumSvg(st, names)}<div id="momentum-tip" class="chart-tip hidden"></div></div>
+  </div>`;
+}
+
+function bindMomentum(st) {
+  if (!st) return;
+  G.bindChart($('#momentum-chart'), $('#momentum-tip'), i => {
+    const d = st.momentum[i];
+    return i ? `Punkt ${i}: <b>${d === 0 ? 'Gleichstand' : `${d > 0 ? 'A' : 'B'} +${Math.abs(d)}`}</b>` : 'Start';
+  });
+}
+
+/* Abzeichen */
+function badgeSnapshot(ids) {
+  const out = {};
+  ids.forEach(id => { out[id] = new Set(L.badgesFor(id, db.players, db.matches, db.trophies || [])); });
+  return out;
+}
+
+async function announceBadges(before) {
+  const fresh = {};
+  Object.entries(before).forEach(([id, had]) => {
+    L.badgesFor(id, db.players, db.matches, db.trophies || []).forEach(b => {
+      if (!had.has(b)) (fresh[b] = fresh[b] || []).push(pname(id));
+    });
+  });
+  const list = Object.entries(fresh);
+  if (!list.length) return;
+  const p = ask(`<h3 style="text-align:center">${list.length === 1 ? 'Neues Abzeichen!' : 'Neue Abzeichen!'}</h3>
+    <div class="badge-unlock">${list.map(([bid, who]) => {
+      const b = L.BADGES.find(x => x.id === bid);
+      return `<div class="unlock">${G.badgeSvg(b, { size: 76 })}<b>${esc(b.name)}</b><span class="sub">${esc(b.desc)}</span><span class="who">${who.map(esc).join(', ')}</span></div>`;
+    }).join('')}</div>`, [{ label: 'Super!', value: 'ok', cls: 'primary' }]);
+  G.confetti(2200);
+  await p;
 }
 
 function renderScore() {
@@ -367,17 +460,17 @@ function renderRank() {
     <li class="tappable" data-player="${s.id}">
       <span class="rank-pos ${i < 3 ? 'p' + (i + 1) : ''}">${i + 1}</span>
       <div class="grow">
-        <div><b>${esc(s.name)}</b><span class="trend" title="Letzte Spiele">${s.trend.slice(-5).map(r => `<i class="${r}"></i>`).join('')}</span></div>
+        <div><b>${esc(s.name)}</b>${badgeCount(s.id)}<span class="trend" title="Letzte Spiele">${s.trend.slice(-5).map(r => `<i class="${r}"></i>`).join('')}</span></div>
         <div class="sub">${s.played} Spiel${s.played === 1 ? '' : 'e'} · ${s.won} S / ${s.lost} N${s.drawn ? ` / ${s.drawn} U` : ''} · ${Math.round(100 * s.won / s.played)} %</div>
         <div class="bar"><i style="width:${Math.round(100 * s.won / s.played)}%"></i></div>
       </div>
       <span class="elo">${Math.round(s.elo)}<small>ELO</small></span>
-    </li>`).join('') : `<li class="empty">${db.matches.length ? `Keine Spiele ${PERIODS[db.rankPeriod || 'all']}.` : 'Noch keine Spiele – zähle ein Spiel oder trag ein Ergebnis ein.'}</li>`;
+    </li>`).join('') : emptyState(db.matches.length ? `Keine Spiele ${PERIODS[db.rankPeriod || 'all']}.` : 'Noch keine Spiele – zähle ein Spiel oder trag ein Ergebnis ein.');
 
   const recent = [...db.matches].sort((x, y) => y.ts - x.ts).slice(0, 30);
   const kind = { americano: 'Americano · ', mexicano: 'Mexicano · ', match: '' };
   $('#match-list').innerHTML = recent.length ? recent.map(mt => `
-    <li>
+    <li class="${mt.stats ? 'tappable' : ''}" data-match="${mt.id}">
       <div class="grow match-teams">
         <span class="${mt.win === 0 ? 'w' : ''}">${esc(pname(mt.a[0]))} & ${esc(pname(mt.a[1]))}</span>
         <span class="${mt.win === 1 ? 'w' : ''}">${esc(pname(mt.b[0]))} & ${esc(pname(mt.b[1]))}</span>
@@ -385,7 +478,8 @@ function renderRank() {
       </div>
       <span class="match-score">${esc(setsText(mt.sets))}</span>
       <button class="linkbtn" data-del-match="${mt.id}" aria-label="Löschen">${ico('trash')}</button>
-    </li>`).join('') : '<li class="empty">Noch keine Spiele</li>';
+      ${mt.stats ? `<span class="linkbtn" aria-hidden="true">${ico('stats')}</span>` : ''}
+    </li>`).join('') : emptyState('Noch keine Spiele');
 
   $('#player-admin').innerHTML = db.players.length ? db.players.map(p => `
     <li>
@@ -400,6 +494,8 @@ $('#tab-rank').addEventListener('click', async e => {
   const b = e.target.closest('button');
   const card = e.target.closest('li[data-player]');
   if (!b && card) return showProfile(card.dataset.player);
+  const ml = e.target.closest('li[data-match]');
+  if (!b && ml) return showMatch(ml.dataset.match);
   if (!b) return;
   if (b.dataset.delMatch) {
     if (!await confirmAsk('Dieses Spiel löschen?', 'Löschen')) return;
@@ -504,6 +600,27 @@ function download(blob, name) {
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
 
+function badgeCount(id) {
+  const n = L.badgesFor(id, db.players, db.matches, db.trophies || []).length;
+  return n ? `<span class="badge-count" title="${n} Abzeichen">${ico('medal')}${n}</span>` : '';
+}
+
+function emptyState(text) {
+  return `<li class="empty illus"><img src="img/empty.svg" alt=""><span>${esc(text)}</span></li>`;
+}
+
+async function showMatch(id) {
+  const mt = db.matches.find(m => m.id === id);
+  if (!mt?.stats) return;
+  const names = [mt.a.map(pname), mt.b.map(pname)];
+  const p = ask(`<h3 style="text-align:center">${esc(names[mt.win ?? 0].join(' & '))} ${mt.win === null ? 'unentschieden' : 'gewinnt'}</h3>
+    <p class="result-big">${esc(setsText(mt.sets))}</p>
+    <p class="hint center">${new Date(mt.ts).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })}${mt.dur ? ` · ${fmtMin(mt.dur)}` : ''}</p>
+    ${statsHtml(mt.stats, names)}`, [{ label: 'Schließen', value: 'ok', cls: 'primary' }]);
+  bindMomentum(mt.stats);
+  await p;
+}
+
 /* Spielerprofil mit Elo-Verlauf */
 function eloChart(history) {
   const W = 300, H = 120, P = { l: 34, r: 40, t: 12, b: 18 };
@@ -560,6 +677,7 @@ async function showProfile(id) {
   if (!me) return;
   const pos = r.filter(x => x.played).findIndex(x => x.id === id) + 1;
   const st = L.playerStats(id, db.matches);
+  const badges = L.badgesFor(id, db.players, db.matches, db.trophies || []);
   const rec = e => `${e.played} Spiel${e.played === 1 ? '' : 'e'} · ${e.won} S / ${e.lost} N`;
   const person = (label, e, cls) => e ? `<div class="duo ${cls}"><span class="sub">${label}</span>
       <div class="duo-row"><span class="avatar">${esc(initials(pname(e.id)))}</span><div><b>${esc(pname(e.id))}</b><div class="sub">${rec(e)}</div></div></div></div>` : '';
@@ -576,6 +694,11 @@ async function showProfile(id) {
       <div><b>${st.bestStreak}</b><span>Beste Serie</span></div>
     </div>
     <div class="duos">${person('Bester Partner', st.bestPartner, 'good')}${st.nemesis ? person('Angstgegner', st.nemesis, 'bad') : (me.played ? '<div class="duo good"><span class="sub">Angstgegner</span><div class="duo-row"><b>Keiner 💪</b></div></div>' : '')}</div>
+    <h4 class="mini">Abzeichen · ${badges.length}/${L.BADGES.length}</h4>
+    <div class="badge-grid">${L.BADGES.map(bd => {
+      const has = badges.includes(bd.id);
+      return `<div class="bg-item ${has ? '' : 'off'}" title="${esc(bd.desc)}">${G.badgeSvg(bd, { locked: !has, size: 46 })}<span>${esc(bd.name)}</span></div>`;
+    }).join('')}</div>
     ${st.partners.length ? `<h4 class="mini">Mit Partnern</h4><ul class="mini-list">${st.partners.slice(0, 5).map(e =>
       `<li><span>${esc(pname(e.id))}</span><span class="sub">${rec(e)}</span></li>`).join('')}</ul>` : ''}`;
   const done = ask(html, [{ label: 'Schließen', value: 'ok', cls: 'primary' }]);
@@ -649,6 +772,8 @@ $('#btn-tour-finish').addEventListener('click', async () => {
   const t = db.tour;
   if (!await confirmAsk('Turnier beenden?', 'Beenden')) return;
   const st = L.standings(t);
+  const before = badgeSnapshot(t.players);
+  if (st.length) (db.trophies = db.trophies || []).push({ ts: Date.now(), mode: t.mode, winner: st[0].id });
   if (t.toRank) {
     let n = 0;
     t.rounds.forEach(r => r.matches.forEach(m => {
@@ -665,9 +790,17 @@ $('#btn-tour-finish').addEventListener('click', async () => {
   const endHtml = `<img class="dlg-art" src="img/hero-rank.svg" alt=""><h3>Endstand</h3><div class="podium">${st.slice(0, 3).map((s, i) =>
     `${['🥇', '🥈', '🥉'][i]} ${esc(pname(s.id))} – ${s.pts} Punkte`).join('<br>')}</div>`;
   const title = `${t.mode === 'americano' ? 'Americano' : 'Mexicano'} – Endstand`;
-  while (await ask(endHtml, [{ label: 'Teilen', value: 'share' }, { label: 'Fertig', value: 'ok', cls: 'primary' }]) === 'share') {
+  let first = true;
+  const openEnd = () => {
+    const p = ask(endHtml, [{ label: 'Teilen', value: 'share' }, { label: 'Fertig', value: 'ok', cls: 'primary' }]);
+    if (first) G.confetti();
+    first = false;
+    return p;
+  };
+  while (await openEnd() === 'share') {
     await shareText(`🏆 ${title}\n` + st.map((s, i) => `${i < 3 ? ['🥇', '🥈', '🥉'][i] : `${i + 1}.`} ${pname(s.id)} – ${s.pts} Pkt`).join('\n'));
   }
+  announceBadges(before);
 });
 
 // Eingabe der Punkte: Team B bekommt automatisch den Rest bis zur Punktzahl.
@@ -1150,7 +1283,7 @@ function renderEvents() {
         <button class="chip icon danger" data-ev="${ev.id}" data-act="del" aria-label="Löschen">${ico('trash')}</button>
       </div>
     </li>`;
-  }).join('') : '<li class="empty">Noch keine Termine</li>';
+  }).join('') : emptyState('Noch keine Termine – leg den ersten an und lade deine Runde ein.');
 }
 
 $('#btn-new-event').addEventListener('click', () => eventDialog());

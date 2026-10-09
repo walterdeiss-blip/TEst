@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 120">
+  <defs>
+    <linearGradient id="c" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b7bd9" stop-opacity=".55"/><stop offset="1" stop-color="#1c4fa0" stop-opacity=".25"/></linearGradient>
+    <radialGradient id="ball" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#f6ff9e"/><stop offset=".55" stop-color="#d9f43a"/><stop offset="1" stop-color="#9fbb12"/></radialGradient>
+    <linearGradient id="r" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5ee6d3"/><stop offset="1" stop-color="#1f8f81"/></linearGradient>
+  </defs>
+  <!-- Court in Perspektive -->
+  <path d="M40 104L70 30h80l30 74z" fill="url(#c)" stroke="#fff" stroke-opacity=".5" stroke-width="1.5"/>
+  <path d="M110 30v74M58 74h104M64 58h92" stroke="#fff" stroke-opacity=".45" stroke-width="1.2" fill="none"/>
+  <path d="M54 66h112" stroke="#fff" stroke-opacity=".8" stroke-width="2.5"/>
+  <!-- liegender Schläger -->
+  <g transform="translate(150 96) rotate(-20)">
+    <rect x="-4" y="-2" width="8" height="26" rx="3" fill="#e9eef5" transform="rotate(90)"/>
+    <ellipse cx="-30" cy="0" rx="20" ry="15" fill="url(#r)"/>
+    <g fill="#0d2b52" opacity=".45"><circle cx="-36" cy="-5" r="2"/><circle cx="-28" cy="-5" r="2"/><circle cx="-36" cy="4" r="2"/><circle cx="-28" cy="4" r="2"/><circle cx="-20" cy="0" r="2"/></g>
+  </g>
+  <!-- Ball -->
+  <ellipse cx="72" cy="104" rx="10" ry="2.5" fill="#000" opacity=".25"/>
+  <circle cx="72" cy="94" r="10" fill="url(#ball)"/>
+  <path d="M64 89c4 1 7 4 7 9M80 99c-4-1-7-4-7-9" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>
+  <g fill="#d9f43a" opacity=".7"><circle cx="96" cy="16" r="2"/><circle cx="128" cy="10" r="1.5"/><circle cx="110" cy="20" r="1"/></g>
+</svg>

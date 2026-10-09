@@ -204,3 +204,40 @@ test('Wöchentliche Termine über Monats- und Jahreswechsel', () => {
   assert.equal(L.addDays('2026-12-31', 7), '2027-01-07');
   assert.equal(L.addDays('2026-03-26', 7), '2026-04-02');  // Zeitumstellung
 });
+
+test('Matchstatistik: Punkte, Breaks, Serien, Momentum', () => {
+  const m = L.newMatch({ names, bestOf: 1, golden: true });
+  game(m, 0);                      // A hält Aufschlag (A1 schlägt auf)
+  game(m, 0);                      // Break für A (B1 schlägt auf)
+  for (let i = 0; i < 3; i++) { L.addPoint(m, 0); L.addPoint(m, 1); }
+  L.addPoint(m, 1);                // Golden Point für B, B hält nicht – A2 schlägt auf → Break B
+  const st = L.matchStats(m);
+  assert.deepEqual(st.points, [11, 4]);
+  assert.deepEqual(st.breaks, [1, 1]);
+  assert.deepEqual(st.serveGames, [2, 1]);
+  assert.deepEqual(st.golden, [0, 1]);
+  assert.equal(st.run[0], 9);  // 8 Punkte der ersten zwei Spiele + erster Punkt im dritten
+  assert.equal(st.momentum.length, 16);
+  assert.equal(st.momentum.at(-1), 7);
+});
+
+test('Abzeichen: Bagel, Comeback, Riesentöter, Serien, Turniersieg', () => {
+  const players = ['a', 'b', 'c', 'd', 'e', 'f'].map(id => ({ id, name: id }));
+  const g = (x, y) => ({ g: [x, y] });
+  const ms = [
+    // c+d werden durch sieben Siege stark (über 100 Elo vor a+b)
+    { id: 1, ts: 1, a: ['c', 'd'], b: ['e', 'f'], sets: [g(6, 2), g(6, 2)], win: 0, kind: 'match' },
+    { id: 2, ts: 2, a: ['c', 'd'], b: ['e', 'f'], sets: [g(6, 2), g(6, 2)], win: 0, kind: 'match' },
+    { id: 3, ts: 3, a: ['c', 'd'], b: ['a', 'b'], sets: [g(6, 2), g(6, 2)], win: 0, kind: 'match' },
+    { id: 4, ts: 4, a: ['c', 'd'], b: ['e', 'f'], sets: [g(6, 2), g(6, 2)], win: 0, kind: 'match' },
+    { id: 41, ts: 4.1, a: ['c', 'd'], b: ['e', 'f'], sets: [g(6, 2), g(6, 2)], win: 0, kind: 'match' },
+    { id: 42, ts: 4.2, a: ['c', 'd'], b: ['e', 'f'], sets: [g(6, 2), g(6, 2)], win: 0, kind: 'match' },
+    { id: 43, ts: 4.3, a: ['c', 'd'], b: ['e', 'f'], sets: [g(6, 2), g(6, 2)], win: 0, kind: 'match' },
+    // a+b drehen das Match gegen die Favoriten, mit 6:0 im zweiten Satz
+    { id: 5, ts: 5, a: ['a', 'b'], b: ['c', 'd'], sets: [g(4, 6), g(6, 0), g(6, 3)], win: 0, kind: 'match', dur: 95 },
+  ];
+  const a = L.badgesFor('a', players, ms, [{ winner: 'a' }]);
+  assert.deepEqual(a, ['first', 'bagel', 'comeback', 'giant', 'marathon', 'champ']);
+  assert.deepEqual(L.badgesFor('c', players, ms), ['first', 'streak3', 'streak5', 'marathon']);  // Marathon zählt für beide Teams
+  assert.ok(L.BADGES.length >= 10);
+});
