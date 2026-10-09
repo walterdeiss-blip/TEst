@@ -5,6 +5,8 @@ const L = window.PadelLogic;
 const $ = sel => document.querySelector(sel);
 const $$ = sel => [...document.querySelectorAll(sel)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const ico = name => `<svg class="ico"><use href="#i-${name}"/></svg>`;
+const initials = n => n.trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
 /* ---------- Speicher ---------- */
@@ -127,9 +129,14 @@ $('#btn-start').addEventListener('click', () => {
   renderScore();
 });
 
-$$('.sb-team').forEach(btn => btn.addEventListener('click', () => {
+$$('.sb-team').forEach(btn => btn.addEventListener('click', e => {
   const m = db.live;
   if (!m || m.winner !== null) return;
+  const r = btn.getBoundingClientRect();
+  btn.style.setProperty('--x', `${e.clientX - r.left}px`);
+  btn.style.setProperty('--y', `${e.clientY - r.top}px`);
+  btn.classList.add('hit');
+  requestAnimationFrame(() => requestAnimationFrame(() => btn.classList.remove('hit')));
   const ev = L.addPoint(m, +btn.dataset.team);
   navigator.vibrate?.(25);
   save();
@@ -165,8 +172,9 @@ async function finishMatch() {
   const names = m.cfg.names;
   const canSave = raw.every(Boolean) && new Set(raw.map(n => n.toLowerCase())).size === 4;
   const w = m.winner;
-  const html = `<h3>🏆 ${esc(names[w].join(' & '))} gewinnt!</h3>
-    <p class="podium">${esc(setsText(m.sets))}</p>
+  const html = `<img class="dlg-art" src="img/hero-rank.svg" alt="">
+    <h3 style="text-align:center">${esc(names[w].join(' & '))} gewinnt!</h3>
+    <p class="result-big">${esc(setsText(m.sets))}</p>
     ${canSave ? '' : '<p class="hint">Für die Rangliste vier verschiedene Namen eingeben.</p>'}`;
   const buttons = [{ label: 'Zurück', value: 'back' }, { label: canSave ? 'Nicht speichern' : 'Fertig', value: 'drop' }];
   if (canSave) buttons.push({ label: 'In Rangliste speichern', value: 'save', cls: 'primary' });
@@ -200,7 +208,7 @@ function renderScore() {
     const t = +btn.dataset.team;
     btn.querySelector('.sb-names').innerHTML = m.cfg.names[t].map((n, p) =>
       `<span class="${m.winner === null && L.serveTeam(srv) === t && L.servePlayer(srv) === p ? 'srv' : ''}">${esc(n)}</span>`
-    ).join(' & ');
+    ).join('<span class="amp">&</span>');
     btn.querySelector('.sb-points').textContent = m.winner !== null ? (m.winner === t ? '🏆' : '') : labels[t];
     btn.querySelector('.sb-games').textContent = m.games[t];
     btn.classList.toggle('won', m.winner === t);
@@ -214,13 +222,13 @@ function renderRank() {
   const rank = L.ranking(db.players, db.matches).filter(s => s.played);
   $('#rank-list').innerHTML = rank.length ? rank.map((s, i) => `
     <li>
-      <span class="rank-pos">${['🥇', '🥈', '🥉'][i] || i + 1}</span>
+      <span class="rank-pos ${i < 3 ? 'p' + (i + 1) : ''}">${i + 1}</span>
       <div class="grow">
-        <div><b>${esc(s.name)}</b></div>
-        <div class="sub">${s.played} Spiel${s.played === 1 ? '' : 'e'} · ${s.won} S / ${s.lost} N${s.drawn ? ` / ${s.drawn} U` : ''} · ${Math.round(100 * s.won / s.played)} %
-          <span class="trend">${s.trend.slice(-5).map(r => `<span class="${r}">${r}</span>`).join('')}</span></div>
+        <div><b>${esc(s.name)}</b><span class="trend" title="Letzte Spiele">${s.trend.slice(-5).map(r => `<i class="${r}"></i>`).join('')}</span></div>
+        <div class="sub">${s.played} Spiel${s.played === 1 ? '' : 'e'} · ${s.won} S / ${s.lost} N${s.drawn ? ` / ${s.drawn} U` : ''} · ${Math.round(100 * s.won / s.played)} %</div>
+        <div class="bar"><i style="width:${Math.round(100 * s.won / s.played)}%"></i></div>
       </div>
-      <span class="elo">${Math.round(s.elo)}</span>
+      <span class="elo">${Math.round(s.elo)}<small>ELO</small></span>
     </li>`).join('') : '<li class="empty">Noch keine Spiele – zähle ein Spiel oder trag ein Ergebnis ein.</li>';
 
   const recent = [...db.matches].sort((x, y) => y.ts - x.ts).slice(0, 30);
@@ -233,14 +241,15 @@ function renderRank() {
         <span class="sub">${kind[mt.kind] || ''}${new Date(mt.ts).toLocaleDateString('de-DE')}</span>
       </div>
       <span class="match-score">${esc(setsText(mt.sets))}</span>
-      <button class="linkbtn" data-del-match="${mt.id}" aria-label="Löschen">🗑</button>
+      <button class="linkbtn" data-del-match="${mt.id}" aria-label="Löschen">${ico('trash')}</button>
     </li>`).join('') : '<li class="empty">Noch keine Spiele</li>';
 
   $('#player-admin').innerHTML = db.players.length ? db.players.map(p => `
     <li>
+      <span class="avatar">${esc(initials(p.name))}</span>
       <span class="grow">${esc(p.name)}</span>
-      <button class="linkbtn" data-rename="${p.id}" aria-label="Umbenennen">✏️</button>
-      <button class="linkbtn" data-del-player="${p.id}" aria-label="Löschen">🗑</button>
+      <button class="linkbtn" data-rename="${p.id}" aria-label="Umbenennen">${ico('edit')}</button>
+      <button class="linkbtn" data-del-player="${p.id}" aria-label="Löschen">${ico('trash')}</button>
     </li>`).join('') : '<li class="empty">Noch keine Spieler</li>';
 }
 
@@ -429,7 +438,7 @@ $('#btn-tour-finish').addEventListener('click', async () => {
   db.tour = null;
   save();
   renderTour();
-  await ask(`<h3>🏁 Endstand</h3><div class="podium">${st.slice(0, 3).map((s, i) =>
+  await ask(`<img class="dlg-art" src="img/hero-rank.svg" alt=""><h3>Endstand</h3><div class="podium">${st.slice(0, 3).map((s, i) =>
     `${['🥇', '🥈', '🥉'][i]} ${esc(pname(s.id))} – ${s.pts} Punkte`).join('<br>')}</div>`);
 });
 
@@ -463,8 +472,8 @@ function renderTour() {
       (n >= 4 && n % 4 ? ` Pro Runde setzen ${n - 4 * Math.max(1, Math.min(+$('#tour-courts').value || 1, Math.floor(n / 4)))} aus.` : '');
     const known = db.players.filter(p => !draft.names.some(n => n.toLowerCase() === p.name.toLowerCase()));
     $('#tour-chips').innerHTML =
-      draft.names.map((n, i) => `<span>${esc(n)}<button data-remove="${i}" aria-label="Entfernen">✕</button></span>`).join('') +
-      known.map(p => `<button class="chip" data-add="${esc(p.name)}">＋ ${esc(p.name)}</button>`).join('');
+      draft.names.map((n, i) => `<span>${esc(n)}<button data-remove="${i}" aria-label="Entfernen">${ico('close')}</button></span>`).join('') +
+      known.map(p => `<button class="chip" data-add="${esc(p.name)}">${ico('plus')}${esc(p.name)}</button>`).join('');
     $('#btn-tour-start').textContent = `Turnier starten (${n} Spieler)`;
     return;
   }
@@ -472,7 +481,7 @@ function renderTour() {
   $('#tour-title').textContent = `${t.mode === 'americano' ? 'Americano' : 'Mexicano'} · ${t.pts} Punkte`;
   $('#tour-rounds').innerHTML = t.rounds.map((r, ri) => `
     <div class="round">
-      <h3><span>Runde ${ri + 1}</span>${r.sit.length ? `<span class="sit">Pause: ${r.sit.map(id => esc(pname(id))).join(', ')}</span>` : ''}</h3>
+      <h3><span class="rnd">Runde ${ri + 1}</span>${r.sit.length ? `<span class="sit">Pause: ${r.sit.map(id => esc(pname(id))).join(', ')}</span>` : ''}</h3>
       ${r.matches.map((m, mi) => `
         <div class="court">
           <span class="label">Platz ${mi + 1}</span>
@@ -593,6 +602,12 @@ function ics(ev) {
   download(new Blob([body], { type: 'text/calendar' }), 'padel.ics');
 }
 
+function dateBadge(date) {
+  if (!date) return '';
+  const d = new Date(date + 'T12:00');
+  return `<span class="date-badge"><span>${d.toLocaleDateString('de-DE', { month: 'short' }).replace('.', '')}</span><b>${d.getDate()}</b></span>`;
+}
+
 function renderEvents() {
   const now = today();
   const list = [...db.events].sort((x, y) => {
@@ -606,25 +621,26 @@ function renderEvents() {
       ev.mine ? `<button class="chip ${s}" data-ev="${ev.id}" data-cycle="${esc(n)}">${esc(n)}</button>` : `<span class="${s}">${esc(n)}</span>`
     ).join('');
     const btns = ev.mine ? `
-        <button class="chip" data-ev="${ev.id}" data-act="invite">📤 Einladen</button>
-        <button class="chip" data-ev="${ev.id}" data-act="add">＋ Person</button>
-        ${yes.length >= 4 ? `<button class="chip" data-ev="${ev.id}" data-act="play">🎾 Spiel starten</button>` : ''}`
+        <button class="chip" data-ev="${ev.id}" data-act="invite">${ico('share')}Einladen</button>
+        <button class="chip" data-ev="${ev.id}" data-act="add">${ico('user-plus')}Person</button>
+        ${yes.length >= 4 ? `<button class="primary" data-ev="${ev.id}" data-act="play">${ico('play')}Spiel starten</button>` : ''}`
       : `<button class="chip" data-ev="${ev.id}" data-act="answer">${ev.my ? STATUS[ev.my].label + ' · ändern' : '↩︎ Antworten'}</button>`;
     return `<li class="event ${ev.date < now ? 'past' : ''}">
       <div class="event-head">
-        <div>
+        ${dateBadge(ev.date)}
+        <div class="grow">
           <div class="event-title">${esc(ev.title)}</div>
           <div class="sub">${esc(eventLine(ev))}</div>
           ${ev.mine ? '' : `<div class="sub">Einladung von ${esc(ev.org || '?')}</div>`}
         </div>
-        ${ev.mine ? `<span class="slots ${yes.length >= ev.max ? 'full' : ''}">${yes.length}/${ev.max}</span>` : ''}
+        ${ev.mine ? `<span class="slots ${yes.length >= ev.max ? 'full' : ''}"><span class="ring" style="--p:${Math.min(100, Math.round(100 * yes.length / ev.max))}"><b>${yes.length}/${ev.max}</b></span></span>` : ''}
       </div>
       ${ev.mine && who ? `<div class="who">${who}</div>` : ''}
       <div class="btnrow">
         ${btns}
-        <button class="chip" data-ev="${ev.id}" data-act="ics">📆</button>
-        ${ev.mine ? `<button class="chip" data-ev="${ev.id}" data-act="edit">✏️</button>` : ''}
-        <button class="chip danger" data-ev="${ev.id}" data-act="del">🗑</button>
+        <button class="chip icon" data-ev="${ev.id}" data-act="ics" aria-label="In Kalender">${ico('cal-add')}</button>
+        ${ev.mine ? `<button class="chip icon" data-ev="${ev.id}" data-act="edit" aria-label="Bearbeiten">${ico('edit')}</button>` : ''}
+        <button class="chip icon danger" data-ev="${ev.id}" data-act="del" aria-label="Löschen">${ico('trash')}</button>
       </div>
     </li>`;
   }).join('') : '<li class="empty">Noch keine Termine</li>';

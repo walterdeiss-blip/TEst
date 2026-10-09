@@ -49,7 +49,8 @@ und speichert alles nur auf dem eigenen Gerät. Ein Konto oder Server ist nicht 
 
 ## Dateien
 
-- `index.html`, `style.css` – Aufbau und Design
+- `index.html`, `style.css` – Aufbau und Glas-Design (Symbole als SVG-Sprite in `index.html`)
+- `img/` – Padel-Illustrationen (Schläger, Pokal, Turnier-Platz, Kalender) und Platzlinien für den Hintergrund
 - `logic.js` – Zählregeln, Elo-Rangliste, Turnier-Paarungen, Einladungslinks (ohne Oberfläche, getestet)
 - `app.js` – Oberfläche und Speicherung (localStorage)
 - `sw.js`, `manifest.webmanifest`, `icon.svg`, `icons/` – installierbare, offline nutzbare Web-App

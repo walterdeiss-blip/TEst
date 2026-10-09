@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 160">
+  <defs>
+    <linearGradient id="ra" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5ee6d3"/><stop offset="1" stop-color="#1f8f81"/></linearGradient>
+    <linearGradient id="rb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb072"/><stop offset="1" stop-color="#d0601f"/></linearGradient>
+    <radialGradient id="ball" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#f6ff9e"/><stop offset=".55" stop-color="#d9f43a"/><stop offset="1" stop-color="#9fbb12"/></radialGradient>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#000" flood-opacity=".35"/></filter>
+  </defs>
+  <g filter="url(#sh)">
+    <!-- Schläger Team A -->
+    <g transform="translate(80 78) rotate(-32)">
+      <rect x="-7" y="30" width="14" height="52" rx="6" fill="#e9eef5"/>
+      <rect x="-7" y="64" width="14" height="18" rx="5" fill="#0d2b52" opacity=".6"/>
+      <ellipse cx="0" cy="-8" rx="34" ry="42" fill="url(#ra)"/>
+      <ellipse cx="0" cy="-8" rx="27" ry="35" fill="#fff" opacity=".12"/>
+      <g fill="#0d2b52" opacity=".45">
+        <circle cx="-12" cy="-26" r="3"/><circle cx="0" cy="-28" r="3"/><circle cx="12" cy="-26" r="3"/>
+        <circle cx="-17" cy="-12" r="3"/><circle cx="-6" cy="-12" r="3"/><circle cx="6" cy="-12" r="3"/><circle cx="17" cy="-12" r="3"/>
+        <circle cx="-12" cy="2" r="3"/><circle cx="0" cy="2" r="3"/><circle cx="12" cy="2" r="3"/>
+        <circle cx="-6" cy="15" r="3"/><circle cx="6" cy="15" r="3"/>
+      </g>
+    </g>
+    <!-- Schläger Team B -->
+    <g transform="translate(142 78) rotate(32)">
+      <rect x="-7" y="30" width="14" height="52" rx="6" fill="#e9eef5"/>
+      <rect x="-7" y="64" width="14" height="18" rx="5" fill="#0d2b52" opacity=".6"/>
+      <ellipse cx="0" cy="-8" rx="34" ry="42" fill="url(#rb)"/>
+      <ellipse cx="0" cy="-8" rx="27" ry="35" fill="#fff" opacity=".12"/>
+      <g fill="#0d2b52" opacity=".45">
+        <circle cx="-12" cy="-26" r="3"/><circle cx="0" cy="-28" r="3"/><circle cx="12" cy="-26" r="3"/>
+        <circle cx="-17" cy="-12" r="3"/><circle cx="-6" cy="-12" r="3"/><circle cx="6" cy="-12" r="3"/><circle cx="17" cy="-12" r="3"/>
+        <circle cx="-12" cy="2" r="3"/><circle cx="0" cy="2" r="3"/><circle cx="12" cy="2" r="3"/>
+        <circle cx="-6" cy="15" r="3"/><circle cx="6" cy="15" r="3"/>
+      </g>
+    </g>
+    <!-- Ball mit Flugbahn -->
+    <path d="M20 40c30 4 58 14 80 34" stroke="#d9f43a" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 8" fill="none" opacity=".8"/>
+    <circle cx="111" cy="86" r="19" fill="url(#ball)"/>
+    <path d="M95 76c9 2 15 10 15 20M127 96c-9-2-15-10-15-20" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" opacity=".9"/>
+  </g>
+  <g fill="#fff" opacity=".7"><circle cx="186" cy="30" r="2.5"/><circle cx="200" cy="52" r="1.6"/><circle cx="30" cy="120" r="2"/></g>
+</svg>

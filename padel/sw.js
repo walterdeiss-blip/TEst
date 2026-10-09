@@ -1,7 +1,7 @@
 /* Padel – Service Worker: macht die App installierbar und offline nutzbar. */
 'use strict';
 
-const VERSION = 'padel-v1';
+const VERSION = 'padel-v2';
 const CORE = [
   './',
   'index.html',
@@ -13,6 +13,11 @@ const CORE = [
   'icons/icon-192.png',
   'icons/icon-512.png',
   'icons/apple-touch-icon.png',
+  'img/court.svg',
+  'img/hero-score.svg',
+  'img/hero-rank.svg',
+  'img/hero-tour.svg',
+  'img/hero-events.svg',
 ];
 
 self.addEventListener('install', e => {
