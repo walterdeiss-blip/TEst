@@ -41,8 +41,8 @@ und speichert alles nur auf dem eigenen Gerät. Ein Konto oder Server ist nicht 
   zurückgeschickt. Sobald der Organisator diesen Link antippt, steht die Zu- oder Absage in seiner App.
   So funktioniert das ganz ohne Server.
 - Teilnehmer lassen sich auch von Hand hinzufügen; Antippen wechselt dabei → vielleicht → abgesagt → entfernen.
-- Ab 4 Zusagen startet **🎾 Spiel starten** direkt die Anzeigetafel mit den Namen.
-- **📆** speichert den Termin im Handy-Kalender (.ics).
+- Ab 4 Zusagen startet **Spiel starten** direkt die Anzeigetafel mit den Namen.
+- Das **Kalender-Symbol** speichert den Termin im Handy-Kalender (.ics).
 
 > **Hinweis iPhone:** Eine App auf dem Home-Bildschirm hat einen eigenen Speicher. Öffnet sich ein Link aus
 > WhatsApp in Safari statt in der App, kopiere ihn und füge ihn unter **Termine → „Link aus WhatsApp einfügen“** ein.
