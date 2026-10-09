@@ -751,7 +751,15 @@ $('#btn-install').addEventListener('click', async () => {
   $('#btn-install').classList.add('hidden');
 });
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  // Neue Version aktiv → einmal neu laden, damit sie sofort zu sehen ist
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloaded || $('#dlg').open) return;
+    reloaded = true;
+    location.reload();
+  });
+  navigator.serviceWorker.register('sw.js').then(reg => reg.update()).catch(() => {});
 }
 
 /* ---------- Start ---------- */

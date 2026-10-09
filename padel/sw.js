@@ -1,7 +1,7 @@
 /* Padel – Service Worker: macht die App installierbar und offline nutzbar. */
 'use strict';
 
-const VERSION = 'padel-v2';
+const VERSION = 'padel-v3';
 const CORE = [
   './',
   'index.html',
@@ -21,7 +21,10 @@ const CORE = [
 ];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(VERSION).then(c => c.addAll(CORE)).then(() => self.skipWaiting()));
+  // cache: 'reload' umgeht den Browser-Cache (GitHub Pages: 10 Minuten), sonst landen alte Dateien im neuen Speicher
+  e.waitUntil(caches.open(VERSION)
+    .then(c => c.addAll(CORE.map(u => new Request(u, { cache: 'reload' }))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', e => {
@@ -39,13 +42,17 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  // Sofort aus dem Speicher, im Hintergrund aktualisieren
-  e.respondWith(caches.open(VERSION).then(async cache => {
-    const hit = await cache.match(req, { ignoreSearch: true });
-    const update = fetch(req).then(res => {
+  // Mit Internet immer die neueste Version vom Server, ohne Netz (oder nach 4 s) aus dem Speicher
+  e.respondWith(caches.open(VERSION).then(cache => {
+    const network = fetch(req, { cache: 'no-cache' }).then(res => {
       if (res.ok) cache.put(req, res.clone());
       return res;
-    }).catch(() => hit);
-    return hit || update;
+    });
+    network.catch(() => {});
+    const fallback = () => cache.match(req, { ignoreSearch: true });
+    const timeout = new Promise(res => setTimeout(res, 4000)).then(fallback);
+    return Promise.race([network, timeout])
+      .then(res => res || network)
+      .catch(() => fallback().then(hit => hit || Response.error()));
   }));
 });
