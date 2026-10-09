@@ -539,3 +539,18 @@ h4.mini { margin: 14px 0 6px; font-size: 12px; text-transform: uppercase; letter
 .mini-list { list-style: none; margin: 0; padding: 0; }
 .mini-list li { display: flex; justify-content: space-between; gap: 8px; padding: 6px 2px; border-top: 1px solid rgba(255, 255, 255, .08); font-size: 14px; }
 dialog { max-height: 88dvh; overflow-y: auto; }
+
+/* Kosten, Zeitraum, Schnellauswahl, Regeln */
+.cost-line { margin-top: 2px; }
+.cost-line b.ok { color: var(--ok); }
+.pay-list li { padding: 0; }
+.pay-list label.row { width: 100%; padding: 8px 0; }
+.result-big small { font-size: 13px; font-weight: 600; letter-spacing: 0; }
+.seg3 { grid-template-columns: repeat(3, 1fr); margin: 0 0 14px; }
+.seg3 button { padding: 9px 6px; font-size: 14px; }
+.chips.quick { justify-content: center; margin-top: 10px; }
+.chips.quick .chip { padding: 6px 12px; font-size: 14px; border-style: dashed; color: var(--muted); }
+.event .tag { margin-top: 4px; }
+ul.rules { margin: 0 0 4px; padding-left: 18px; }
+ul.rules li { margin: 5px 0; font-size: 14px; line-height: 1.4; }
+ul.rules li::marker { color: var(--ball); }

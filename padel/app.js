@@ -169,6 +169,52 @@ $('#btn-random').addEventListener('click', () => {
   if (names) { fillTeams(L.shuffle(names)); toast('🎲 Teams ausgelost'); }
 });
 
+/* Schnellauswahl bekannter Spieler */
+function renderQuickPlayers() {
+  const taken = nameInputs.map(s => $(s).value.trim().toLowerCase());
+  const last = {};
+  db.matches.forEach(m => [...m.a, ...m.b].forEach(id => { last[id] = Math.max(last[id] || 0, m.ts); }));
+  const list = db.players.filter(p => !taken.includes(p.name.toLowerCase()))
+    .sort((x, y) => (last[y.id] || 0) - (last[x.id] || 0) || x.name.localeCompare(y.name)).slice(0, 12);
+  $('#quick-players').innerHTML = list.map(p => `<button class="chip" data-quick="${esc(p.name)}">${ico('plus')}${esc(p.name)}</button>`).join('');
+}
+$('#quick-players').addEventListener('click', e => {
+  const b = e.target.closest('[data-quick]');
+  if (!b) return;
+  const free = nameInputs.find(s => !$(s).value.trim());
+  if (!free) return toast('Alle vier Plätze sind belegt');
+  $(free).value = b.dataset.quick;
+  renderQuickPlayers();
+});
+nameInputs.forEach(s => $(s).addEventListener('input', renderQuickPlayers));
+
+/* Regel-Spickzettel */
+const RULES = [
+  ['Aufschlag', [
+    'Von unten: Ball hinter der Aufschlaglinie einmal aufprallen lassen und höchstens auf Hüfthöhe treffen.',
+    'Diagonal ins Aufschlagfeld des Gegners, zwei Versuche.',
+    'Ball berührt das Netz und landet im Feld → Aufschlag wiederholen. Trifft er danach das Gitter, ist es ein Fehler.',
+    'Nach dem Aufprall im Feld darf der Ball an die Glaswand, aber nicht ans Gitter.',
+  ]],
+  ['Ballwechsel', [
+    'Der Ball muss zuerst im gegnerischen Feld aufkommen. Erst danach darf er Glas oder Gitter berühren.',
+    'Er darf nur einmal aufprallen, bevor er zurückgespielt wird; Volleys sind erlaubt (außer beim Return).',
+    'Den Ball darf man nach dem Aufprall von den eigenen Wänden zurückspringen lassen und dann spielen.',
+    'Man darf den Ball auch gegen die eigene Wand schlagen, damit er über das Netz geht.',
+    'Trifft der Ball direkt (ohne Aufprall) Wand oder Gitter des Gegners → Punkt verloren.',
+    'Netz oder Ball mit Körper oder Schläger berühren → Punkt verloren.',
+  ]],
+  ['Zählen', [
+    'Wie im Tennis: 15 – 30 – 40 – Spiel. Bei 40:40 Einstand und Vorteil, oder Golden Point: der nächste Punkt entscheidet, das rückschlagende Team wählt die Seite.',
+    '6 Spiele mit 2 Vorsprung gewinnen einen Satz, bei 6:6 Tiebreak bis 7.',
+    'Seitenwechsel nach jedem ungeraden Spiel (1, 3, 5 …), im Tiebreak alle 6 Punkte.',
+    'Aufschlag reihum: A1 → B1 → A2 → B2.',
+  ]],
+];
+$('#btn-rules').addEventListener('click', () => ask(`<h3>Padel-Regeln kurz</h3>${RULES.map(([title, items]) =>
+  `<h4 class="mini">${title}</h4><ul class="rules">${items.map(t => `<li>${esc(t)}</li>`).join('')}</ul>`).join('')}`,
+[{ label: 'Alles klar', value: 'ok', cls: 'primary' }]));
+
 /* Sprachansage */
 function say(text) {
   if (!text || !('speechSynthesis' in window)) return;
@@ -269,6 +315,7 @@ async function finishMatch() {
 
 function renderScore() {
   refreshPlayerList();
+  renderQuickPlayers();
   const m = db.live;
   $('#score-setup').classList.toggle('hidden', !!m);
   $('#score-live').classList.toggle('hidden', !m);
@@ -299,9 +346,23 @@ function renderScore() {
 
 /* ---------- 🏆 Rangliste ---------- */
 
+const PERIODS = { all: 'insgesamt', 30: 'in den letzten 30 Tagen', year: `im Jahr ${new Date().getFullYear()}` };
+function periodMatches() {
+  const p = db.rankPeriod || 'all';
+  if (p === 'all') return db.matches;
+  const from = p === 'year' ? new Date(new Date().getFullYear(), 0, 1).getTime() : Date.now() - 30 * 86400000;
+  return db.matches.filter(m => m.ts >= from);
+}
+$$('#rank-period button').forEach(b => b.addEventListener('click', () => {
+  db.rankPeriod = b.dataset.p;
+  save();
+  renderRank();
+}));
+
 function renderRank() {
   refreshPlayerList();
-  const rank = L.ranking(db.players, db.matches).filter(s => s.played);
+  $$('#rank-period button').forEach(b => b.classList.toggle('on', b.dataset.p === (db.rankPeriod || 'all')));
+  const rank = L.ranking(db.players, periodMatches()).filter(s => s.played);
   $('#rank-list').innerHTML = rank.length ? rank.map((s, i) => `
     <li class="tappable" data-player="${s.id}">
       <span class="rank-pos ${i < 3 ? 'p' + (i + 1) : ''}">${i + 1}</span>
@@ -311,7 +372,7 @@ function renderRank() {
         <div class="bar"><i style="width:${Math.round(100 * s.won / s.played)}%"></i></div>
       </div>
       <span class="elo">${Math.round(s.elo)}<small>ELO</small></span>
-    </li>`).join('') : '<li class="empty">Noch keine Spiele – zähle ein Spiel oder trag ein Ergebnis ein.</li>';
+    </li>`).join('') : `<li class="empty">${db.matches.length ? `Keine Spiele ${PERIODS[db.rankPeriod || 'all']}.` : 'Noch keine Spiele – zähle ein Spiel oder trag ein Ergebnis ein.'}</li>`;
 
   const recent = [...db.matches].sort((x, y) => y.ts - x.ts).slice(0, 30);
   const kind = { americano: 'Americano · ', mexicano: 'Mexicano · ', match: '' };
@@ -923,7 +984,7 @@ async function shareText(text) {
 
 function inviteText(ev) {
   const link = appUrl() + '#t=' + L.encode({ i: ev.id, ti: ev.title, d: ev.date, h: ev.time, p: ev.place, m: ev.max, o: ev.org });
-  return `🎾 ${ev.title}\n📅 ${fmtDate(ev.date, ev.time)}${ev.place ? `\n📍 ${ev.place}` : ''}\n👥 ${ev.max} Plätze\n\nSag hier zu oder ab:\n${link}`;
+  return `🎾 ${ev.title}\n📅 ${fmtDate(ev.date, ev.time)}${ev.place ? `\n📍 ${ev.place}` : ''}\n👥 ${ev.max} Plätze${ev.price ? `\n💶 ca. ${L.fmtEuro(ev.price / ev.max)} pro Person` : ''}\n\nSag hier zu oder ab:\n${link}`;
 }
 
 function replyText(ev, name, s) {
@@ -944,26 +1005,37 @@ async function eventDialog(ev, preset = {}) {
     <div class="grid2">
       <label class="field">Plätze<input id="e-max" type="number" min="2" max="32" value="${ev.max}"></label>
       <label class="field">Dein Name<input id="e-me" value="${esc(db.me)}" required></label>
+    </div>
+    <div class="grid2">
+      <label class="field">Platzmiete gesamt (€)<input id="e-price" type="number" inputmode="decimal" min="0" step="0.5" value="${ev.price ?? ''}" placeholder="optional"></label>
+      ${isNew ? `<label class="field">Wiederholen<select id="e-repeat">
+        <option value="1">Einmalig</option><option value="4">Wöchentlich, 4×</option><option value="8">Wöchentlich, 8×</option>
+      </select></label>` : ''}
     </div>`, [{ label: 'Abbrechen', value: '' }, { label: isNew ? 'Erstellen' : 'Speichern', value: 'ok', cls: 'primary' }]);
   if (v !== 'ok') return;
   const me = $('#e-me').value.trim();
   const data = {
     title: $('#e-title').value.trim() || 'Padel', date: $('#e-date').value, time: $('#e-time').value,
     place: $('#e-place').value.trim(), max: Math.max(2, +$('#e-max').value || 4), org: me,
+    price: +$('#e-price').value > 0 ? Math.round(+$('#e-price').value * 100) / 100 : null,
   };
+  const repeat = isNew ? +$('#e-repeat').value : 1;
   if (me && db.me && db.me !== me && ev.rsvp?.[db.me]) {
     ev.rsvp[me] = ev.rsvp[db.me];
     delete ev.rsvp[db.me];
   }
   db.me = me;
   if (isNew) {
-    ev = { id: uid(), mine: true, rsvp: { [me]: 'yes' }, ...data };
-    db.events.push(ev);
+    const series = repeat > 1 ? uid() : null;
+    const all = L.weeklyDates(data.date, repeat).map(date => ({ id: uid(), mine: true, rsvp: { [me]: 'yes' }, paid: {}, series, ...data, date }));
+    db.events.push(...all);
+    ev = all[0];
   } else Object.assign(ev, data);
   save();
   renderEvents();
   if (isNew && preset.place) showTab('events');
-  if (isNew && await confirmAsk('Termin erstellt! Jetzt Einladung per WhatsApp & Co. verschicken?', 'Einladen')) shareText(inviteText(ev));
+  const msg = repeat > 1 ? `${repeat} wöchentliche Termine erstellt! Einladung für den ersten verschicken?` : 'Termin erstellt! Jetzt Einladung per WhatsApp & Co. verschicken?';
+  if (isNew && await confirmAsk(msg, 'Einladen')) shareText(inviteText(ev));
 }
 
 async function answerDialog(ev) {
@@ -994,6 +1066,46 @@ function ics(ev) {
   download(new Blob([body], { type: 'text/calendar' }), 'padel.ics');
 }
 
+/* Platzmiete teilen */
+const payers = ev => Object.keys(ev.rsvp || {}).filter(n => ev.rsvp[n] === 'yes');
+const isPaid = (ev, n) => n === ev.org || !!(ev.paid || {})[n];
+
+function costLine(ev) {
+  const who = payers(ev);
+  const share = L.splitCost(ev.price, who.length)[0];
+  const paid = who.filter(n => isPaid(ev, n)).length;
+  return `<div class="sub cost-line">${L.fmtEuro(ev.price)}${share ? ` · ${L.fmtEuro(share)} p. P. · <b class="${paid === who.length ? 'ok' : ''}">${paid}/${who.length} bezahlt</b>` : ''}</div>`;
+}
+
+function paypalUrl(name, amount) {
+  return name ? `https://paypal.me/${encodeURIComponent(name)}/${amount.toFixed(2)}EUR` : '';
+}
+
+async function costDialog(ev) {
+  const who = payers(ev);
+  if (!who.length) return toast('Noch keine Zusagen');
+  const shares = L.splitCost(ev.price, who.length);
+  const v = await ask(`<h3>Platzmiete</h3>
+    <p class="result-big">${L.fmtEuro(shares[0])} <small class="hint">pro Person</small></p>
+    <p class="hint center">${L.fmtEuro(ev.price)} geteilt durch ${who.length}</p>
+    <ul class="mini-list pay-list">${who.map((n, i) => `<li><label class="row check">
+      <span>${esc(n)}${n === ev.org ? ' <span class="sub">(hat ausgelegt)</span>' : ''} <span class="sub">${L.fmtEuro(shares[i])}</span></span>
+      <input type="checkbox" class="switch" data-pay="${esc(n)}" ${isPaid(ev, n) ? 'checked' : ''} ${n === ev.org ? 'disabled' : ''}></label></li>`).join('')}</ul>
+    <label class="field">Dein PayPal.me-Name (optional)<input id="c-paypal" value="${esc(db.paypal || '')}" placeholder="z. B. walterdeiss" autocomplete="off"></label>`,
+  [{ label: 'Erinnerung teilen', value: 'remind' }, { label: 'Fertig', value: 'ok', cls: 'primary' }]);
+  ev.paid = {};
+  $$('[data-pay]').forEach(c => { if (c.checked && !c.disabled) ev.paid[c.dataset.pay] = true; });
+  db.paypal = $('#c-paypal').value.trim().replace(/^.*paypal\.me\//i, '').replace(/\/.*$/, '');
+  save();
+  renderEvents();
+  if (v !== 'remind') return;
+  const open = who.filter(n => !isPaid(ev, n));
+  if (!open.length) return toast('✅ Alle haben bezahlt');
+  const link = paypalUrl(db.paypal, Math.max(...shares));
+  shareText(`💶 ${ev.title} am ${fmtDate(ev.date, ev.time)}\n${L.fmtEuro(shares[0])} pro Person (${L.fmtEuro(ev.price)} gesamt)\nNoch offen: ${open.join(', ')}` +
+    (link ? `\n\nPer PayPal an ${ev.org || db.me}:\n${link}` : ''));
+}
+
 function dateBadge(date) {
   if (!date) return '';
   const d = new Date(date + 'T12:00');
@@ -1015,6 +1127,7 @@ function renderEvents() {
     const btns = ev.mine ? `
         <button class="chip" data-ev="${ev.id}" data-act="invite">${ico('share')}Einladen</button>
         <button class="chip" data-ev="${ev.id}" data-act="add">${ico('user-plus')}Person</button>
+        ${ev.price ? `<button class="chip" data-ev="${ev.id}" data-act="cost">${ico('euro')}Kosten</button>` : ''}
         ${yes.length >= 4 ? `<button class="primary" data-ev="${ev.id}" data-act="play">${ico('play')}Spiel starten</button>` : ''}`
       : `<button class="chip" data-ev="${ev.id}" data-act="answer">${ev.my ? STATUS[ev.my].label + ' · ändern' : '↩︎ Antworten'}</button>`;
     return `<li class="event ${ev.date < now ? 'past' : ''}">
@@ -1024,6 +1137,8 @@ function renderEvents() {
           <div class="event-title">${esc(ev.title)}</div>
           <div class="sub">${esc(eventLine(ev))}</div>
           ${ev.mine ? '' : `<div class="sub">Einladung von ${esc(ev.org || '?')}</div>`}
+          ${ev.series ? '<span class="tag">Wöchentlich</span>' : ''}
+          ${ev.mine && ev.price ? costLine(ev) : ''}
         </div>
         ${ev.mine ? `<span class="slots ${yes.length >= ev.max ? 'full' : ''}"><span class="ring" style="--p:${Math.min(100, Math.round(100 * yes.length / ev.max))}"><b>${yes.length}/${ev.max}</b></span></span>` : ''}
       </div>
@@ -1057,6 +1172,7 @@ $('#event-list').addEventListener('click', async e => {
     case 'invite': return shareText(inviteText(ev));
     case 'answer': return answerDialog(ev);
     case 'ics': return ics(ev);
+    case 'cost': return costDialog(ev);
     case 'edit': return eventDialog(ev);
     case 'add': {
       const v = await ask('<h3>Person hinzufügen</h3><input id="p-name" list="player-list" placeholder="Name" required>',

@@ -329,6 +329,29 @@
     return best;
   }
 
+  /* ---------- Termine: Kosten und Wiederholung ---------- */
+
+  // Teilt einen Betrag (in Euro) auf n Personen auf; Restcents gehen an die ersten.
+  function splitCost(total, n) {
+    if (!n || !(total > 0)) return [];
+    const cents = Math.round(total * 100);
+    const base = Math.floor(cents / n), rest = cents - base * n;
+    return Array.from({ length: n }, (_, i) => (base + (i < rest ? 1 : 0)) / 100);
+  }
+
+  const fmtEuro = v => v.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
+
+  // Datum (JJJJ-MM-TT) plus Tage, ohne Zeitzonen-Verschiebung
+  function addDays(date, days) {
+    const [y, m, d] = date.split('-').map(Number);
+    const t = new Date(Date.UTC(y, m - 1, d + days));
+    return t.toISOString().slice(0, 10);
+  }
+
+  function weeklyDates(date, count) {
+    return Array.from({ length: count }, (_, i) => addDays(date, 7 * i));
+  }
+
   /* ---------- Einladungs- und Antwortlinks ---------- */
 
   function encode(obj) {
@@ -358,7 +381,7 @@
 
   root.PadelLogic = {
     newMatch, addPoint, undo, pointLabels, statusText, currentServer, serveTeam, servePlayer, setsWon,
-    announce, ranking, playerStats, fairTeams, ELO_START, standings, nextRound, shuffle, encode, decode, parseLink,
+    announce, splitCost, fmtEuro, addDays, weeklyDates, ranking, playerStats, fairTeams, ELO_START, standings, nextRound, shuffle, encode, decode, parseLink,
   };
   if (typeof module !== 'undefined') module.exports = root.PadelLogic;
 })(typeof window !== 'undefined' ? window : globalThis);

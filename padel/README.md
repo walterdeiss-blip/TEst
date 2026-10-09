@@ -17,6 +17,8 @@ und speichert alles nur auf dem eigenen Gerät. Ein Konto oder Server ist nicht 
 - Sätze bis 6 mit 2 Spielen Vorsprung, **Tiebreak** bei 6:6, wahlweise **Match-Tiebreak bis 10** statt 3. Satz.
 - 🎾 zeigt, wer aufschlägt (Reihenfolge A1 → B1 → A2 → B2, im Tiebreak nach jedem 2. Punkt).
 - Hinweis bei **Seitenwechsel**, der Bildschirm bleibt während des Spiels an.
+- **Schnellauswahl:** bekannte Spieler antippen statt Namen tippen (zuletzt aktive zuerst).
+- **Regeln:** Spickzettel mit den wichtigsten Padel-Regeln (Aufschlag, Wände, Zählweise).
 - **Faire Teams:** verteilt vier Spieler nach Elo auf zwei möglichst gleich starke Teams
   (mit Siegchance); **Zufällig** lost die Teams aus.
 - **Spielstand ansagen:** Das Handy sagt nach jedem Punkt den Stand an (Aufschläger zuerst,
@@ -29,6 +31,7 @@ und speichert alles nur auf dem eigenen Gerät. Ein Konto oder Server ist nicht 
 - **Elo-Wertung** (Start 1000): Wer gegen stärkere Gegner gewinnt, bekommt mehr Punkte.
   Die Teamstärke ist der Schnitt beider Spieler.
 - Siege, Niederlagen, Siegquote und die letzten 5 Ergebnisse jedes Spielers.
+- **Zeitraum:** Rangliste gesamt, für die letzten 30 Tage oder das laufende Jahr.
 - **Spielerprofil** (Spieler antippen): Elo-Verlauf als Kurve (antippen/ziehen zeigt den Wert nach
   jedem Spiel), aktuelle und beste Siegesserie, bester Partner, Angstgegner und Bilanz mit jedem Partner.
 - Ergebnisse auch nachträglich eintragen und löschen; Spieler umbenennen.
@@ -79,6 +82,10 @@ Places-Suche gibt es ein monatliches Freikontingent, darüber hinaus wird sie be
 - Teilnehmer lassen sich auch von Hand hinzufügen; Antippen wechselt dabei → vielleicht → abgesagt → entfernen.
 - Ab 4 Zusagen startet **Spiel starten** direkt die Anzeigetafel mit den Namen.
 - Das **Kalender-Symbol** speichert den Termin im Handy-Kalender (.ics).
+- **Wöchentlich:** Beim Anlegen „Wöchentlich, 4×“ oder „8×“ wählen – für die feste Spielrunde.
+- **Platzmiete teilen:** Gesamtpreis eintragen; die App zeigt den Anteil pro Person (centgenau),
+  unter **Kosten** wird abgehakt, wer bezahlt hat. **Erinnerung teilen** schickt den Offenen eine
+  Nachricht – mit PayPal.me-Link, wenn du deinen PayPal.me-Namen einträgst.
 
 > **Hinweis iPhone:** Eine App auf dem Home-Bildschirm hat einen eigenen Speicher. Öffnet sich ein Link aus
 > WhatsApp in Safari statt in der App, kopiere ihn und füge ihn unter **Termine → „Link aus WhatsApp einfügen“** ein.

@@ -190,3 +190,17 @@ test('Kein Angstgegner bei positiver Bilanz', () => {
   ];
   assert.equal(L.playerStats('a', ms).nemesis, null);
 });
+
+test('Kosten aufteilen auf den Cent genau', () => {
+  assert.deepEqual(L.splitCost(40, 4), [10, 10, 10, 10]);
+  assert.deepEqual(L.splitCost(10, 3), [3.34, 3.33, 3.33]);
+  assert.equal(L.splitCost(10, 3).reduce((a, b) => a + b, 0).toFixed(2), '10.00');
+  assert.deepEqual(L.splitCost(0, 4), []);
+  assert.deepEqual(L.splitCost(20, 0), []);
+});
+
+test('Wöchentliche Termine über Monats- und Jahreswechsel', () => {
+  assert.deepEqual(L.weeklyDates('2026-12-17', 3), ['2026-12-17', '2026-12-24', '2026-12-31']);
+  assert.equal(L.addDays('2026-12-31', 7), '2027-01-07');
+  assert.equal(L.addDays('2026-03-26', 7), '2026-04-02');  // Zeitumstellung
+});
