@@ -134,6 +134,11 @@
           <label class="row check">Golden Point bei 40:40<input type="checkbox" class="switch" id="opt-golden" checked></label>
           <label class="row check">3. Satz als Match-Tiebreak<input type="checkbox" class="switch" id="opt-supertb"></label>
           <label class="row check"><span><svg class="ico"><use href="#i-sound"/></svg> Spielstand ansagen</span><input type="checkbox" class="switch" id="opt-speech"></label>
+          <div class="row voice-row hidden" id="voice-row">
+            <select id="opt-voice" aria-label="Stimme für die Ansage"></select>
+            <button type="button" id="btn-voice-test" class="chip icon" aria-label="Hörprobe"><svg class="ico"><use href="#i-play"/></svg></button>
+          </div>
+          <p id="voice-hint" class="hint voice-hint hidden"></p>
         </div>
         <button id="btn-start" class="primary big"><svg class="ico"><use href="#i-play"/></svg>Spiel starten</button>
         <p class="hint center">Ohne Namen wird nur gezählt. Mit vier Namen kannst du das Ergebnis am Ende in die Rangliste übernehmen.</p>

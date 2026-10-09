@@ -24,6 +24,14 @@ und speichert alles nur auf dem eigenen Gerät. Ein Konto oder Server ist nicht 
   (mit Siegchance); **Zufällig** lost die Teams aus.
 - **Spielstand ansagen:** Das Handy sagt nach jedem Punkt den Stand an (Aufschläger zuerst,
   „Einstand“, „Vorteil …“, „Spiel …“, Seitenwechsel). Während des Spiels mit dem Lautsprecher-Knopf an/aus.
+- **Stimme:** Die App wählt automatisch die natürlichste deutsche Frauenstimme des Geräts
+  (Premium/Erweitert/Natural-Stimmen zuerst); jede andere installierte Stimme lässt sich auswählen
+  und mit ▶ probehören. Web-Apps können nur die Stimmen des Geräts nutzen – für eine wirklich
+  natürliche Stimme lohnt es sich, eine Premium-Stimme zu laden:
+  - *iPhone:* Einstellungen → Bedienungshilfen → Gesprochene Inhalte → Stimmen → Deutsch,
+    z. B. Anna oder Petra in „Premium“/„Erweitert“
+  - *Android:* Einstellungen → Bedienungshilfen → Text-in-Sprache → Google-Sprachausgabe → Deutsch
+  - *PC:* In Microsoft Edge gibt es sehr natürliche Online-Stimmen (z. B. „Katja Online (Natural)“).
 - **Spieldauer** läuft auf der Anzeigetafel mit und wird mit dem Ergebnis gespeichert.
 - Ergebnis per **Teilen** an WhatsApp & Co. schicken.
 - **Matchstatistik** am Ende: Punkte, gehaltene Aufschlagspiele, Breaks, längste Punkteserie, Golden Points

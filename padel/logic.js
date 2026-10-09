@@ -225,29 +225,54 @@
   // Ansagetext nach einem Punkt; Aufschläger zuerst, wie auf dem Platz üblich.
   function announce(m, ev) {
     const team = t => m.cfg.names[t].join(' und ');
-    if (ev?.type === 'match') return `Spiel, Satz und Sieg ${team(ev.team)}`;
+    if (ev?.type === 'match') return `Spiel, Satz und Sieg: ${team(ev.team)}. Glückwunsch!`;
     const games = `${m.games[0]} zu ${m.games[1]}`;
     if (ev?.type === 'set') {
       const w = setsWon(m);
-      return `Satz ${team(ev.team)}. Sätze ${w[0]} zu ${w[1]}${ev.superTb ? '. Match-Tiebreak' : ''}`;
+      return `Satz, ${team(ev.team)}. Sätze: ${w[0]} zu ${w[1]}.${ev.superTb ? ' Jetzt Match-Tiebreak.' : ''}`;
     }
-    if (ev?.type === 'tiebreak') return 'Sechs beide. Tiebreak';
+    if (ev?.type === 'tiebreak') return 'Sechs beide. Tiebreak!';
     const srvTeam = serveTeam(currentServer(m));
     if (ev?.type === 'game') {
-      return `Spiel ${team(ev.team)}. ${games}${ev.side ? '. Seitenwechsel' : ''}`;
+      return `Spiel, ${team(ev.team)}. ${games}.${ev.side ? ' Seitenwechsel, bitte.' : ''}`;
     }
     const p = m.points;
     if (m.tb) {
       const first = p[srvTeam], second = p[1 - srvTeam];
-      return `${first} zu ${second}${ev?.type === 'side' ? '. Seitenwechsel' : ''}`;
+      return `${first} zu ${second}.${ev?.type === 'side' ? ' Seitenwechsel, bitte.' : ''}`;
     }
     if (p[0] >= 3 && p[1] >= 3) {
-      if (p[0] === p[1]) return m.cfg.golden ? 'Golden Point' : 'Einstand';
-      return `Vorteil ${team(p[0] > p[1] ? 0 : 1)}`;
+      if (p[0] === p[1]) return m.cfg.golden ? 'Einstand. Golden Point!' : 'Einstand.';
+      return `Vorteil, ${team(p[0] > p[1] ? 0 : 1)}.`;
     }
     const l = pointLabels(m);
     const a = SPOKEN[l[srvTeam]], b = SPOKEN[l[1 - srvTeam]];
-    return a === b ? `${a} beide` : `${a} ${b}`;
+    return a === b ? `${a} beide.` : `${a}, ${b}.`;
+  }
+
+  /* ---------- Stimmenauswahl ---------- */
+
+  // Bekannte Stimmen der Geräte (iOS, macOS, Windows/Edge, Android/Chrome)
+  const FEMALE = /\b(anna|petra|helena|marlene|katja|amala|seraphina|elke|gisela|klarissa|louisa|maja|tanja|ingrid|hedda|vicki|leni|sabine|hanna|lea|julia|female|weiblich|frau)\b/i;
+  const MALE = /\b(conrad|killian|markus|martin|viktor|yannick|stefan|bernd|christoph|florian|ralf|klaus|jonas|kasper|male|männlich|mann)\b/i;
+  const QUALITY = /(natural|neural|premium|enhanced|erweitert|verbessert|online|wavenet|studio)/i;
+
+  // Bewertet die deutschen Stimmen: natürlich klingende Frauenstimmen zuerst.
+  function rankVoices(voices) {
+    return voices
+      .filter(v => /^de([-_]|$)/i.test(v.lang || ''))
+      .map(v => {
+        const female = FEMALE.test(v.name) ? true : MALE.test(v.name) ? false : null;
+        const natural = QUALITY.test(v.name) || /^Google/i.test(v.name);
+        let score = 0;
+        if (natural) score += 50;
+        if (female === true) score += 30;
+        if (female === false) score -= 40;
+        if (/de[-_]DE/i.test(v.lang)) score += 5;
+        if (v.localService === false) score += 5;  // Online-Stimmen klingen meist besser
+        return { voice: v, name: v.name, female, natural, score };
+      })
+      .sort((x, y) => y.score - x.score || x.name.localeCompare(y.name));
   }
 
   /* ---------- Rangliste (Elo) ---------- */
@@ -469,7 +494,7 @@
 
   root.PadelLogic = {
     newMatch, addPoint, undo, pointLabels, statusText, currentServer, serveTeam, servePlayer, setsWon,
-    matchStats, BADGES, badgesFor, announce, splitCost, fmtEuro, addDays, weeklyDates, ranking, playerStats, fairTeams, ELO_START, standings, nextRound, shuffle, encode, decode, parseLink,
+    matchStats, BADGES, badgesFor, rankVoices, announce, splitCost, fmtEuro, addDays, weeklyDates, ranking, playerStats, fairTeams, ELO_START, standings, nextRound, shuffle, encode, decode, parseLink,
   };
   if (typeof module !== 'undefined') module.exports = root.PadelLogic;
 })(typeof window !== 'undefined' ? window : globalThis);

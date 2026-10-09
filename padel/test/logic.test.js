@@ -146,15 +146,15 @@ test('Einladungslink mit Umlauten hin und zurück', () => {
 test('Sprachansage: Aufschläger zuerst, Einstand, Spiel', () => {
   const m = L.newMatch({ names, server: 1 });  // B1 schlägt auf
   let ev = L.addPoint(m, 0);
-  assert.equal(L.announce(m, ev), 'null fünfzehn');
+  assert.equal(L.announce(m, ev), 'null, fünfzehn.');
   ev = L.addPoint(m, 1);
-  assert.equal(L.announce(m, ev), 'fünfzehn beide');
+  assert.equal(L.announce(m, ev), 'fünfzehn beide.');
   L.addPoint(m, 0); L.addPoint(m, 1); L.addPoint(m, 0); ev = L.addPoint(m, 1);
-  assert.equal(L.announce(m, ev), 'Einstand');
+  assert.equal(L.announce(m, ev), 'Einstand.');
   ev = L.addPoint(m, 1);
-  assert.equal(L.announce(m, ev), 'Vorteil B1 und B2');
+  assert.equal(L.announce(m, ev), 'Vorteil, B1 und B2.');
   ev = L.addPoint(m, 1);
-  assert.equal(L.announce(m, ev), 'Spiel B1 und B2. 0 zu 1. Seitenwechsel');
+  assert.equal(L.announce(m, ev), 'Spiel, B1 und B2. 0 zu 1. Seitenwechsel, bitte.');
 });
 
 test('Spielerstatistik: bester Partner, Angstgegner, Serien', () => {
@@ -240,4 +240,18 @@ test('Abzeichen: Bagel, Comeback, Riesentöter, Serien, Turniersieg', () => {
   assert.deepEqual(a, ['first', 'bagel', 'comeback', 'giant', 'marathon', 'champ']);
   assert.deepEqual(L.badgesFor('c', players, ms), ['first', 'streak3', 'streak5', 'marathon']);  // Marathon zählt für beide Teams
   assert.ok(L.BADGES.length >= 10);
+});
+
+test('Stimmen: natürliche Frauenstimme zuerst, Männerstimmen nach hinten', () => {
+  const v = (name, lang = 'de-DE', localService = true) => ({ name, lang, localService });
+  const ranked = L.rankVoices([
+    v('Markus'), v('Anna'), v('Petra (Premium)'), v('Samantha', 'en-US'),
+    v('Microsoft Katja Online (Natural) - German (Germany)', 'de-DE', false), v('Yannick (Erweitert)'), v('Deutsch Deutschland'),
+  ]);
+  assert.deepEqual(ranked.map(r => r.name), [
+    'Microsoft Katja Online (Natural) - German (Germany)', 'Petra (Premium)', 'Anna', 'Yannick (Erweitert)', 'Deutsch Deutschland', 'Markus',
+  ]);
+  assert.equal(ranked[0].female, true);
+  assert.equal(ranked.find(r => r.name === 'Deutsch Deutschland').female, null);
+  assert.equal(L.rankVoices([v('Samantha', 'en-US')]).length, 0);
 });

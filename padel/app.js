@@ -233,19 +233,69 @@ $('#btn-rules').addEventListener('click', async () => {
   await p;
 });
 
-/* Sprachansage */
+/* Sprachansage mit der natürlichsten Frauenstimme des Geräts */
+let rankedVoices = [];
+const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const IS_ANDROID = /Android/.test(navigator.userAgent);
+
+function loadVoices() {
+  if (!('speechSynthesis' in window)) return;
+  rankedVoices = L.rankVoices(speechSynthesis.getVoices());
+  const sel = $('#opt-voice');
+  sel.innerHTML = '<option value="">Automatisch – beste Frauenstimme</option>' + rankedVoices.map(r =>
+    `<option value="${esc(r.name)}">${r.female === true ? '♀ ' : r.female === false ? '♂ ' : ''}${esc(r.name.replace(/\s*-\s*German.*$/i, ''))}${r.natural ? ' ★' : ''}</option>`).join('');
+  sel.value = rankedVoices.some(r => r.name === db.voice) ? db.voice : '';
+  const best = rankedVoices[0];
+  const hint = $('#voice-hint');
+  if (best && best.natural && best.female) {
+    hint.classList.add('hidden');
+  } else {
+    hint.innerHTML = rankedVoices.length
+      ? `Für eine natürlichere Frauenstimme: ${IS_IOS
+        ? '<b>Einstellungen → Bedienungshilfen → Gesprochene Inhalte → Stimmen → Deutsch</b> und eine Stimme wie <b>Anna</b> oder <b>Petra</b> in der Qualität „Premium“ bzw. „Erweitert“ laden. Danach die App neu öffnen.'
+        : IS_ANDROID
+          ? '<b>Einstellungen → Bedienungshilfen → Text-in-Sprache → Google-Sprachausgabe → Deutsch</b> eine weibliche Stimme auswählen und laden.'
+          : 'In Microsoft Edge gibt es sehr natürliche Stimmen (z. B. „Katja Online (Natural)“ oder „Seraphina“).'}`
+      : 'Auf diesem Gerät ist keine deutsche Stimme installiert.';
+    hint.classList.remove('hidden');
+  }
+}
+if ('speechSynthesis' in window) {
+  loadVoices();
+  speechSynthesis.addEventListener?.('voiceschanged', loadVoices);
+}
+
+function currentVoice() {
+  return rankedVoices.find(r => r.name === db.voice) || rankedVoices[0] || null;
+}
+
 function say(text) {
   if (!text || !('speechSynthesis' in window)) return;
   try {
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'de-DE';
-    u.rate = 1.05;
-    const voice = speechSynthesis.getVoices().find(v => v.lang && v.lang.startsWith('de'));
-    if (voice) u.voice = voice;
+    const v = currentVoice();
+    u.lang = v?.voice.lang || 'de-DE';
+    if (v) u.voice = v.voice;
+    u.rate = 1;
+    u.pitch = 1;
     speechSynthesis.speak(u);
   } catch (e) { /* nicht unterstützt */ }
 }
+
+const VOICE_SAMPLE = 'Dreißig, fünfzehn. Spiel, Anna und Ben. Drei zu zwei. Seitenwechsel, bitte.';
+$('#opt-voice').addEventListener('change', () => {
+  db.voice = $('#opt-voice').value;
+  save();
+  say(VOICE_SAMPLE);
+});
+$('#btn-voice-test').addEventListener('click', () => say(VOICE_SAMPLE));
+$('#opt-speech').addEventListener('change', () => {
+  db.speech = $('#opt-speech').checked;
+  save();
+  $('#voice-row').classList.toggle('hidden', !db.speech);
+  if (db.speech) { loadVoices(); say(VOICE_SAMPLE); }
+});
 
 /* Spieldauer */
 const fmtDur = ms => {
@@ -415,6 +465,7 @@ function renderScore() {
   keepAwake(!!m && m.winner === null);
   clearInterval(clockTimer);
   $('#opt-speech').checked = !!db.speech;
+  $('#voice-row').classList.toggle('hidden', !db.speech);
   $('#btn-speech').classList.toggle('off', !db.speech);
   if (!m) return;
   tickClock();

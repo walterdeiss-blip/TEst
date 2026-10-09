@@ -635,3 +635,10 @@ ul.rules li::marker { color: var(--ball); }
 
 /* Konfetti */
 canvas.confetti { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 100; pointer-events: none; }
+
+/* Stimmenauswahl */
+.voice-row { display: flex; align-items: center; gap: 8px; padding: 0 0 10px; }
+.voice-row select { flex: 1; width: 100%; min-width: 0; text-overflow: ellipsis; }
+.options .voice-row { border-top: 0 !important; }
+.voice-hint { margin: 0 0 10px; font-size: 13px; }
+.voice-hint b { color: var(--text); font-weight: 700; }
