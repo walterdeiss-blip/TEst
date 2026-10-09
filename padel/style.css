@@ -492,3 +492,50 @@ input[list]::-webkit-calendar-picker-indicator { display: none !important; }
 #btn-gmaps { margin: 4px auto 0; display: flex; width: max-content; text-decoration: none; }
 .spinner { width: 22px; height: 22px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, .2); border-top-color: var(--ball); animation: spin .8s linear infinite; display: inline-block; vertical-align: middle; margin-right: 8px; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- Zusatzfunktionen ---------- */
+.team-tools { justify-content: center; margin: 12px 0 0; }
+.options .row .ico { vertical-align: -4px; margin-right: 4px; color: var(--muted); }
+#sb-time { display: inline-flex; align-items: center; gap: 5px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; }
+#sb-time .ico { width: 16px; height: 16px; }
+.sb-actions { align-items: center; }
+#btn-speech.off { opacity: .45; }
+#btn-speech.off .ico { filter: grayscale(1); }
+.tappable { cursor: pointer; }
+.tappable:active { transform: scale(.99); }
+
+/* Spielerprofil */
+.profile-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.profile-head h3 { margin: 0; }
+.profile-head .elo { margin-left: auto; }
+.avatar.big { width: 52px; height: 52px; font-size: 20px; }
+#elo-chart { width: 100%; height: auto; display: block; margin: 6px 0 2px; touch-action: none; overflow: visible; }
+#elo-chart .grid { stroke: rgba(255, 255, 255, .22); stroke-width: 1; stroke-dasharray: 3 4; }
+#elo-chart .axis { fill: var(--muted); font-size: 10px; font-weight: 600; }
+#elo-chart .line { fill: none; stroke: var(--ball); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+#elo-chart .end { fill: var(--ball); stroke: #0f2a50; stroke-width: 2; }
+#elo-chart .val { fill: var(--text); font-size: 12px; font-weight: 800; }
+#elo-chart .cross { stroke: rgba(255, 255, 255, .5); stroke-width: 1; }
+#elo-chart .dot { fill: var(--ball); stroke: #0f2a50; stroke-width: 2; }
+#elo-chart .hover.hidden { display: none; }
+.chart-wrap { position: relative; }
+.chart-tip {
+  position: relative; width: 120px; margin-top: -2px; font-size: 12px; text-align: center;
+  background: rgba(255, 255, 255, .92); color: #0d2240; border-radius: 10px; padding: 4px 8px;
+}
+.chart-tip .up { color: #13843d; font-weight: 800; }
+.chart-tip .down { color: #c02a2a; font-weight: 800; }
+.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 12px 0; }
+.stat-grid div { background: rgba(255, 255, 255, .08); border: 1px solid var(--glass-line); border-radius: 14px; padding: 8px 4px; text-align: center; }
+.stat-grid b { display: block; font-size: 20px; font-weight: 900; }
+.stat-grid span { font-size: 11px; color: var(--muted); font-weight: 600; }
+.duos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.duo { border-radius: 14px; padding: 8px 10px; background: rgba(255, 255, 255, .06); border: 1px solid var(--glass-line); }
+.duo.good { border-color: rgba(126, 240, 160, .45); }
+.duo.bad { border-color: rgba(255, 123, 123, .4); }
+.duo-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.duo .avatar { width: 30px; height: 30px; font-size: 12px; }
+h4.mini { margin: 14px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); }
+.mini-list { list-style: none; margin: 0; padding: 0; }
+.mini-list li { display: flex; justify-content: space-between; gap: 8px; padding: 6px 2px; border-top: 1px solid rgba(255, 255, 255, .08); font-size: 14px; }
+dialog { max-height: 88dvh; overflow-y: auto; }

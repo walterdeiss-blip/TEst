@@ -80,7 +80,7 @@
       m.tb = { target: 7, start: m.server };
       return { type: 'tiebreak' };
     }
-    return { type: 'game', side: (g[0] + g[1]) % 2 === 1 };
+    return { type: 'game', team: t, side: (g[0] + g[1]) % 2 === 1 };
   }
 
   function finishSet(m, t) {
@@ -131,6 +131,38 @@
     return `${m.sets.length + 1}. Satz`;
   }
 
+  /* ---------- Sprachansage ---------- */
+
+  const SPOKEN = { '0': 'null', '15': 'fünfzehn', '30': 'dreißig', '40': 'vierzig' };
+
+  // Ansagetext nach einem Punkt; Aufschläger zuerst, wie auf dem Platz üblich.
+  function announce(m, ev) {
+    const team = t => m.cfg.names[t].join(' und ');
+    if (ev?.type === 'match') return `Spiel, Satz und Sieg ${team(ev.team)}`;
+    const games = `${m.games[0]} zu ${m.games[1]}`;
+    if (ev?.type === 'set') {
+      const w = setsWon(m);
+      return `Satz ${team(ev.team)}. Sätze ${w[0]} zu ${w[1]}${ev.superTb ? '. Match-Tiebreak' : ''}`;
+    }
+    if (ev?.type === 'tiebreak') return 'Sechs beide. Tiebreak';
+    const srvTeam = serveTeam(currentServer(m));
+    if (ev?.type === 'game') {
+      return `Spiel ${team(ev.team)}. ${games}${ev.side ? '. Seitenwechsel' : ''}`;
+    }
+    const p = m.points;
+    if (m.tb) {
+      const first = p[srvTeam], second = p[1 - srvTeam];
+      return `${first} zu ${second}${ev?.type === 'side' ? '. Seitenwechsel' : ''}`;
+    }
+    if (p[0] >= 3 && p[1] >= 3) {
+      if (p[0] === p[1]) return m.cfg.golden ? 'Golden Point' : 'Einstand';
+      return `Vorteil ${team(p[0] > p[1] ? 0 : 1)}`;
+    }
+    const l = pointLabels(m);
+    const a = SPOKEN[l[srvTeam]], b = SPOKEN[l[1 - srvTeam]];
+    return a === b ? `${a} beide` : `${a} ${b}`;
+  }
+
   /* ---------- Rangliste (Elo) ---------- */
 
   const ELO_START = 1000;
@@ -140,7 +172,7 @@
   function ranking(players, matches) {
     const st = {};
     players.forEach(p => {
-      st[p.id] = { id: p.id, name: p.name, elo: ELO_START, played: 0, won: 0, lost: 0, drawn: 0, trend: [] };
+      st[p.id] = { id: p.id, name: p.name, elo: ELO_START, played: 0, won: 0, lost: 0, drawn: 0, trend: [], history: [ELO_START] };
     });
     [...matches].sort((x, y) => x.ts - y.ts).forEach(mt => {
       const ids = [...mt.a, ...mt.b];
@@ -163,6 +195,46 @@
     else if (score === 0) s.lost++;
     else s.drawn++;
     s.trend.push(score === 1 ? 'S' : score === 0 ? 'N' : 'U');
+    s.history.push(s.elo);
+  }
+
+  // Partner, Gegner und Serien eines Spielers.
+  function playerStats(id, matches) {
+    const partners = {}, opponents = {};
+    let streak = 0, best = 0;
+    [...matches].sort((x, y) => x.ts - y.ts).forEach(mt => {
+      const inA = mt.a.includes(id), inB = mt.b.includes(id);
+      if (!inA && !inB) return;
+      const mine = inA ? mt.a : mt.b, theirs = inA ? mt.b : mt.a;
+      const res = mt.win === null || mt.win === undefined ? 'U' : (mt.win === 0) === inA ? 'S' : 'N';
+      const add = (map, pid) => {
+        const e = map[pid] || (map[pid] = { id: pid, played: 0, won: 0, lost: 0 });
+        e.played++;
+        if (res === 'S') e.won++;
+        if (res === 'N') e.lost++;
+      };
+      mine.filter(p => p !== id).forEach(p => add(partners, p));
+      theirs.forEach(p => add(opponents, p));
+      streak = res === 'S' ? streak + 1 : 0;
+      best = Math.max(best, streak);
+    });
+    const rate = e => e.won / e.played;
+    const bestPartner = Object.values(partners).filter(e => e.won)
+      .sort((x, y) => rate(y) - rate(x) || y.won - x.won)[0] || null;
+    // Angstgegner nur, wenn die Bilanz gegen ihn höchstens ausgeglichen ist
+    const nemesis = Object.values(opponents).filter(e => e.lost && e.lost >= e.won)
+      .sort((x, y) => y.lost - x.lost || rate(x) - rate(y))[0] || null;
+    return { partners: Object.values(partners).sort((x, y) => y.played - x.played), bestPartner, nemesis, streak, bestStreak: best };
+  }
+
+  // Die drei möglichen Aufteilungen von vier Spielern, die ausgeglichenste zuerst.
+  function fairTeams(ids, elo) {
+    const e = id => elo[id] ?? ELO_START;
+    return [[[0, 1], [2, 3]], [[0, 2], [1, 3]], [[0, 3], [1, 2]]].map(([a, b]) => {
+      const ta = a.map(i => ids[i]), tb = b.map(i => ids[i]);
+      const ea = (e(ta[0]) + e(ta[1])) / 2, eb = (e(tb[0]) + e(tb[1])) / 2;
+      return { a: ta, b: tb, diff: Math.abs(ea - eb), chance: 1 / (1 + Math.pow(10, (eb - ea) / 400)) };
+    }).sort((x, y) => x.diff - y.diff);
   }
 
   /* ---------- Americano / Mexicano ---------- */
@@ -286,7 +358,7 @@
 
   root.PadelLogic = {
     newMatch, addPoint, undo, pointLabels, statusText, currentServer, serveTeam, servePlayer, setsWon,
-    ranking, ELO_START, standings, nextRound, shuffle, encode, decode, parseLink,
+    announce, ranking, playerStats, fairTeams, ELO_START, standings, nextRound, shuffle, encode, decode, parseLink,
   };
   if (typeof module !== 'undefined') module.exports = root.PadelLogic;
 })(typeof window !== 'undefined' ? window : globalThis);

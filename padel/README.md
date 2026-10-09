@@ -17,12 +17,20 @@ und speichert alles nur auf dem eigenen Gerät. Ein Konto oder Server ist nicht 
 - Sätze bis 6 mit 2 Spielen Vorsprung, **Tiebreak** bei 6:6, wahlweise **Match-Tiebreak bis 10** statt 3. Satz.
 - 🎾 zeigt, wer aufschlägt (Reihenfolge A1 → B1 → A2 → B2, im Tiebreak nach jedem 2. Punkt).
 - Hinweis bei **Seitenwechsel**, der Bildschirm bleibt während des Spiels an.
+- **Faire Teams:** verteilt vier Spieler nach Elo auf zwei möglichst gleich starke Teams
+  (mit Siegchance); **Zufällig** lost die Teams aus.
+- **Spielstand ansagen:** Das Handy sagt nach jedem Punkt den Stand an (Aufschläger zuerst,
+  „Einstand“, „Vorteil …“, „Spiel …“, Seitenwechsel). Während des Spiels mit dem Lautsprecher-Knopf an/aus.
+- **Spieldauer** läuft auf der Anzeigetafel mit und wird mit dem Ergebnis gespeichert.
+- Ergebnis per **Teilen** an WhatsApp & Co. schicken.
 - Am Ende kann das Ergebnis in die Rangliste übernommen werden.
 
 ### 🏆 Rangliste
 - **Elo-Wertung** (Start 1000): Wer gegen stärkere Gegner gewinnt, bekommt mehr Punkte.
   Die Teamstärke ist der Schnitt beider Spieler.
 - Siege, Niederlagen, Siegquote und die letzten 5 Ergebnisse jedes Spielers.
+- **Spielerprofil** (Spieler antippen): Elo-Verlauf als Kurve (antippen/ziehen zeigt den Wert nach
+  jedem Spiel), aktuelle und beste Siegesserie, bester Partner, Angstgegner und Bilanz mit jedem Partner.
 - Ergebnisse auch nachträglich eintragen und löschen; Spieler umbenennen.
 - **Sicherung** als Datei speichern und auf einem anderen Handy laden.
 
@@ -34,6 +42,7 @@ und speichert alles nur auf dem eigenen Gerät. Ein Konto oder Server ist nicht 
 - Bei Spielerzahlen, die nicht durch 4 teilbar sind, wird das Aussetzen gleichmäßig verteilt.
 - Punkte eintippen; die Punkte des Gegners werden automatisch ergänzt. Die Tabelle aktualisiert sich live.
 - Auf Wunsch fließen alle Turnierspiele in die Rangliste ein.
+- Den Endstand per **Teilen** in die WhatsApp-Gruppe schicken.
 
 ### 📍 Plätze in der Nähe
 - **Meinen Standort verwenden** oder einen Ort, eine PLZ oder Adresse eingeben.

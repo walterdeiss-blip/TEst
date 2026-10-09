@@ -125,9 +125,79 @@ $('#btn-start').addEventListener('click', () => {
     server: +$('#opt-server').value,
   });
   db.live.raw = raw;
+  db.live.started = Date.now();
+  db.speech = $('#opt-speech').checked;
   save();
   renderScore();
+  say(db.speech ? `${shown[0]} und ${shown[1]} gegen ${shown[2]} und ${shown[3]}. Viel Spaß!` : '');
 });
+
+$('#btn-speech').addEventListener('click', () => {
+  db.speech = !db.speech;
+  save();
+  renderScore();
+  toast(db.speech ? '🔊 Ansage an' : '🔇 Ansage aus');
+  if (db.speech && db.live) say(L.announce(db.live, null));
+});
+
+/* Faire Teams nach Elo bzw. zufällig */
+function teamNames() {
+  const names = nameInputs.map(s => $(s).value.trim());
+  if (names.some(n => !n) || new Set(names.map(n => n.toLowerCase())).size !== 4) {
+    toast('Erst vier verschiedene Namen eintragen');
+    return null;
+  }
+  return names;
+}
+function fillTeams(order) {
+  nameInputs.forEach((s, i) => { $(s).value = order[i]; });
+}
+$('#btn-fair').addEventListener('click', () => {
+  const names = teamNames();
+  if (!names) return;
+  const elo = {};
+  L.ranking(db.players, db.matches).forEach(r => { elo[r.name.toLowerCase()] = r.elo; });
+  const keys = names.map(n => n.toLowerCase());
+  const [best] = L.fairTeams(keys, elo);
+  const byKey = Object.fromEntries(names.map(n => [n.toLowerCase(), n]));
+  fillTeams([...best.a, ...best.b].map(k => byKey[k]));
+  const pa = Math.round(best.chance * 100);
+  toast(`⚖ Faire Teams · Chance ${pa}:${100 - pa}`);
+});
+$('#btn-random').addEventListener('click', () => {
+  const names = teamNames();
+  if (names) { fillTeams(L.shuffle(names)); toast('🎲 Teams ausgelost'); }
+});
+
+/* Sprachansage */
+function say(text) {
+  if (!text || !('speechSynthesis' in window)) return;
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'de-DE';
+    u.rate = 1.05;
+    const voice = speechSynthesis.getVoices().find(v => v.lang && v.lang.startsWith('de'));
+    if (voice) u.voice = voice;
+    speechSynthesis.speak(u);
+  } catch (e) { /* nicht unterstützt */ }
+}
+
+/* Spieldauer */
+const fmtDur = ms => {
+  const t = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(t / 3600), m = Math.floor(t / 60) % 60, sec = t % 60;
+  return h ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}` : `${m}:${String(sec).padStart(2, '0')}`;
+};
+const fmtMin = min => min >= 60 ? `${Math.floor(min / 60)} h ${min % 60} min` : `${min} min`;
+let clockTimer = null;
+function tickClock() {
+  const m = db.live;
+  const el = $('#sb-time span');
+  if (!m || !m.started) { $('#sb-time').classList.add('hidden'); return; }
+  $('#sb-time').classList.remove('hidden');
+  el.textContent = fmtDur((m.ended || Date.now()) - m.started);
+}
 
 $$('.sb-team').forEach(btn => btn.addEventListener('click', e => {
   const m = db.live;
@@ -139,8 +209,10 @@ $$('.sb-team').forEach(btn => btn.addEventListener('click', e => {
   requestAnimationFrame(() => requestAnimationFrame(() => btn.classList.remove('hit')));
   const ev = L.addPoint(m, +btn.dataset.team);
   navigator.vibrate?.(25);
+  if (ev?.type === 'match') m.ended = Date.now();
   save();
   renderScore();
+  if (db.speech) say(L.announce(m, ev));
   if (!ev) return;
   const team = t => `Team ${t === 0 ? 'A' : 'B'}`;
   if (ev.type === 'side') toast('↔ Seitenwechsel');
@@ -172,17 +244,22 @@ async function finishMatch() {
   const names = m.cfg.names;
   const canSave = raw.every(Boolean) && new Set(raw.map(n => n.toLowerCase())).size === 4;
   const w = m.winner;
+  const dur = m.started ? Math.max(1, Math.round(((m.ended || Date.now()) - m.started) / 60000)) : null;
   const html = `<img class="dlg-art" src="img/hero-rank.svg" alt="">
     <h3 style="text-align:center">${esc(names[w].join(' & '))} gewinnt!</h3>
     <p class="result-big">${esc(setsText(m.sets))}</p>
+    ${dur ? `<p class="hint center">Spieldauer ${fmtMin(dur)}</p>` : ''}
     ${canSave ? '' : '<p class="hint">Für die Rangliste vier verschiedene Namen eingeben.</p>'}`;
-  const buttons = [{ label: 'Zurück', value: 'back' }, { label: canSave ? 'Nicht speichern' : 'Fertig', value: 'drop' }];
+  const buttons = [{ label: 'Zurück', value: 'back' }, { label: 'Teilen', value: 'share' }, { label: canSave ? 'Nicht speichern' : 'Fertig', value: 'drop' }];
   if (canSave) buttons.push({ label: 'In Rangliste speichern', value: 'save', cls: 'primary' });
-  const v = await ask(html, buttons);
+  let v;
+  while ((v = await ask(html, buttons)) === 'share') {
+    await shareText(`🎾 ${names[w].join(' & ')} gewinnen gegen ${names[1 - w].join(' & ')}\n${setsText(m.sets)}${dur ? ` · ${fmtMin(dur)}` : ''}`);
+  }
   if (v === 'back' || v === '') return;
   if (v === 'save') {
     const ids = raw.map(ensurePlayer);
-    db.matches.push({ id: uid(), ts: Date.now(), a: ids.slice(0, 2), b: ids.slice(2), sets: m.sets, win: w, kind: 'match' });
+    db.matches.push({ id: uid(), ts: Date.now(), a: ids.slice(0, 2), b: ids.slice(2), sets: m.sets, win: w, kind: 'match', dur });
     toast('✅ In der Rangliste gespeichert');
   }
   db.live = null;
@@ -196,7 +273,12 @@ function renderScore() {
   $('#score-setup').classList.toggle('hidden', !!m);
   $('#score-live').classList.toggle('hidden', !m);
   keepAwake(!!m && m.winner === null);
+  clearInterval(clockTimer);
+  $('#opt-speech').checked = !!db.speech;
+  $('#btn-speech').classList.toggle('off', !db.speech);
   if (!m) return;
+  tickClock();
+  if (m.winner === null) clockTimer = setInterval(tickClock, 1000);
 
   const labels = L.pointLabels(m);
   const srv = L.currentServer(m);
@@ -221,7 +303,7 @@ function renderRank() {
   refreshPlayerList();
   const rank = L.ranking(db.players, db.matches).filter(s => s.played);
   $('#rank-list').innerHTML = rank.length ? rank.map((s, i) => `
-    <li>
+    <li class="tappable" data-player="${s.id}">
       <span class="rank-pos ${i < 3 ? 'p' + (i + 1) : ''}">${i + 1}</span>
       <div class="grow">
         <div><b>${esc(s.name)}</b><span class="trend" title="Letzte Spiele">${s.trend.slice(-5).map(r => `<i class="${r}"></i>`).join('')}</span></div>
@@ -238,7 +320,7 @@ function renderRank() {
       <div class="grow match-teams">
         <span class="${mt.win === 0 ? 'w' : ''}">${esc(pname(mt.a[0]))} & ${esc(pname(mt.a[1]))}</span>
         <span class="${mt.win === 1 ? 'w' : ''}">${esc(pname(mt.b[0]))} & ${esc(pname(mt.b[1]))}</span>
-        <span class="sub">${kind[mt.kind] || ''}${new Date(mt.ts).toLocaleDateString('de-DE')}</span>
+        <span class="sub">${kind[mt.kind] || ''}${new Date(mt.ts).toLocaleDateString('de-DE')}${mt.dur ? ` · ${fmtMin(mt.dur)}` : ''}</span>
       </div>
       <span class="match-score">${esc(setsText(mt.sets))}</span>
       <button class="linkbtn" data-del-match="${mt.id}" aria-label="Löschen">${ico('trash')}</button>
@@ -255,6 +337,8 @@ function renderRank() {
 
 $('#tab-rank').addEventListener('click', async e => {
   const b = e.target.closest('button');
+  const card = e.target.closest('li[data-player]');
+  if (!b && card) return showProfile(card.dataset.player);
   if (!b) return;
   if (b.dataset.delMatch) {
     if (!await confirmAsk('Dieses Spiel löschen?', 'Löschen')) return;
@@ -359,6 +443,85 @@ function download(blob, name) {
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
 
+/* Spielerprofil mit Elo-Verlauf */
+function eloChart(history) {
+  const W = 300, H = 120, P = { l: 34, r: 40, t: 12, b: 18 };
+  const lo = Math.min(...history, 1000), hi = Math.max(...history, 1000);
+  const span = Math.max(20, hi - lo), min = lo - span * .12, max = hi + span * .12;
+  const x = i => P.l + (history.length < 2 ? 0 : i * (W - P.l - P.r) / (history.length - 1));
+  const y = v => P.t + (max - v) * (H - P.t - P.b) / (max - min);
+  const pts = history.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const last = history[history.length - 1];
+  return `<svg id="elo-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Elo-Verlauf über ${history.length - 1} Spiele, aktuell ${Math.round(last)}">
+    <line class="grid" x1="${P.l}" x2="${W - P.r}" y1="${y(1000)}" y2="${y(1000)}"/>
+    <text class="axis" x="${P.l - 6}" y="${y(1000) + 4}" text-anchor="end">1000</text>
+    <text class="axis" x="${P.l}" y="${H - 3}">Start</text>
+    <text class="axis" x="${W - P.r}" y="${H - 3}" text-anchor="end">Spiel ${history.length - 1}</text>
+    <polyline class="line" points="${pts}"/>
+    <circle class="end" cx="${x(history.length - 1)}" cy="${y(last)}" r="4.5"/>
+    <text class="val" x="${x(history.length - 1) + 8}" y="${y(last) + 4}">${Math.round(last)}</text>
+    <g class="hover hidden"><line class="cross" y1="${P.t}" y2="${H - P.b}"/><circle class="dot" r="5"/></g>
+    <rect class="hit" x="${P.l - 8}" y="0" width="${W - P.l - P.r + 16}" height="${H}" fill="transparent"/>
+  </svg>
+  <div id="elo-tip" class="chart-tip hidden"></div>`;
+}
+
+function bindEloChart(history) {
+  const svg = $('#elo-chart');
+  if (!svg) return;
+  const pts = svg.querySelector('.line').getAttribute('points').split(' ').map(p => p.split(',').map(Number));
+  const hover = svg.querySelector('.hover'), tip = $('#elo-tip');
+  const show = e => {
+    const r = svg.getBoundingClientRect();
+    const vx = (e.clientX - r.left) * 300 / r.width;
+    let i = 0;
+    pts.forEach((p, k) => { if (Math.abs(p[0] - vx) < Math.abs(pts[i][0] - vx)) i = k; });
+    const [px, py] = pts[i];
+    hover.classList.remove('hidden');
+    hover.querySelector('.cross').setAttribute('x1', px);
+    hover.querySelector('.cross').setAttribute('x2', px);
+    hover.querySelector('.dot').setAttribute('cx', px);
+    hover.querySelector('.dot').setAttribute('cy', py);
+    const d = i ? Math.round(history[i] - history[i - 1]) : 0;
+    tip.innerHTML = `<b>${Math.round(history[i])}</b> ${i ? `nach Spiel ${i} <span class="${d >= 0 ? 'up' : 'down'}">${d >= 0 ? '+' : '−'}${Math.abs(d)}</span>` : 'Start'}`;
+    tip.classList.remove('hidden');
+    tip.style.left = `${Math.min(r.width - 120, Math.max(0, px * r.width / 300 - 60))}px`;
+  };
+  const hide = () => { hover.classList.add('hidden'); tip.classList.add('hidden'); };
+  svg.addEventListener('pointermove', show);
+  svg.addEventListener('pointerdown', show);
+  svg.addEventListener('pointerleave', hide);
+}
+
+async function showProfile(id) {
+  const r = L.ranking(db.players, db.matches);
+  const me = r.find(x => x.id === id);
+  if (!me) return;
+  const pos = r.filter(x => x.played).findIndex(x => x.id === id) + 1;
+  const st = L.playerStats(id, db.matches);
+  const rec = e => `${e.played} Spiel${e.played === 1 ? '' : 'e'} · ${e.won} S / ${e.lost} N`;
+  const person = (label, e, cls) => e ? `<div class="duo ${cls}"><span class="sub">${label}</span>
+      <div class="duo-row"><span class="avatar">${esc(initials(pname(e.id)))}</span><div><b>${esc(pname(e.id))}</b><div class="sub">${rec(e)}</div></div></div></div>` : '';
+  const html = `<div class="profile-head">
+      <span class="avatar big">${esc(initials(me.name))}</span>
+      <div><h3>${esc(me.name)}</h3><div class="sub">${pos ? `Platz ${pos} von ${r.filter(x => x.played).length}` : 'Noch ohne Wertung'}</div></div>
+      <span class="elo">${Math.round(me.elo)}<small>ELO</small></span>
+    </div>
+    ${me.played ? eloChart(me.history) : ''}
+    <div class="stat-grid">
+      <div><b>${me.played}</b><span>Spiele</span></div>
+      <div><b>${me.played ? Math.round(100 * me.won / me.played) : 0} %</b><span>Siege</span></div>
+      <div><b>${st.streak}</b><span>Serie</span></div>
+      <div><b>${st.bestStreak}</b><span>Beste Serie</span></div>
+    </div>
+    <div class="duos">${person('Bester Partner', st.bestPartner, 'good')}${st.nemesis ? person('Angstgegner', st.nemesis, 'bad') : (me.played ? '<div class="duo good"><span class="sub">Angstgegner</span><div class="duo-row"><b>Keiner 💪</b></div></div>' : '')}</div>
+    ${st.partners.length ? `<h4 class="mini">Mit Partnern</h4><ul class="mini-list">${st.partners.slice(0, 5).map(e =>
+      `<li><span>${esc(pname(e.id))}</span><span class="sub">${rec(e)}</span></li>`).join('')}</ul>` : ''}`;
+  const done = ask(html, [{ label: 'Schließen', value: 'ok', cls: 'primary' }]);
+  if (me.played) bindEloChart(me.history);
+  await done;
+}
+
 /* ---------- 🔄 Turnier ---------- */
 
 const draft = { mode: 'americano', names: [] };
@@ -438,8 +601,12 @@ $('#btn-tour-finish').addEventListener('click', async () => {
   db.tour = null;
   save();
   renderTour();
-  await ask(`<img class="dlg-art" src="img/hero-rank.svg" alt=""><h3>Endstand</h3><div class="podium">${st.slice(0, 3).map((s, i) =>
-    `${['🥇', '🥈', '🥉'][i]} ${esc(pname(s.id))} – ${s.pts} Punkte`).join('<br>')}</div>`);
+  const endHtml = `<img class="dlg-art" src="img/hero-rank.svg" alt=""><h3>Endstand</h3><div class="podium">${st.slice(0, 3).map((s, i) =>
+    `${['🥇', '🥈', '🥉'][i]} ${esc(pname(s.id))} – ${s.pts} Punkte`).join('<br>')}</div>`;
+  const title = `${t.mode === 'americano' ? 'Americano' : 'Mexicano'} – Endstand`;
+  while (await ask(endHtml, [{ label: 'Teilen', value: 'share' }, { label: 'Fertig', value: 'ok', cls: 'primary' }]) === 'share') {
+    await shareText(`🏆 ${title}\n` + st.map((s, i) => `${i < 3 ? ['🥇', '🥈', '🥉'][i] : `${i + 1}.`} ${pname(s.id)} – ${s.pts} Pkt`).join('\n'));
+  }
 });
 
 // Eingabe der Punkte: Team B bekommt automatisch den Rest bis zur Punktzahl.

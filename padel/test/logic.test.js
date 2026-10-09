@@ -142,3 +142,51 @@ test('Einladungslink mit Umlauten hin und zurück', () => {
   assert.equal(L.parseLink('https://example.org/#r=@@@'), null);
   assert.equal(L.parseLink('kein link'), null);
 });
+
+test('Sprachansage: Aufschläger zuerst, Einstand, Spiel', () => {
+  const m = L.newMatch({ names, server: 1 });  // B1 schlägt auf
+  let ev = L.addPoint(m, 0);
+  assert.equal(L.announce(m, ev), 'null fünfzehn');
+  ev = L.addPoint(m, 1);
+  assert.equal(L.announce(m, ev), 'fünfzehn beide');
+  L.addPoint(m, 0); L.addPoint(m, 1); L.addPoint(m, 0); ev = L.addPoint(m, 1);
+  assert.equal(L.announce(m, ev), 'Einstand');
+  ev = L.addPoint(m, 1);
+  assert.equal(L.announce(m, ev), 'Vorteil B1 und B2');
+  ev = L.addPoint(m, 1);
+  assert.equal(L.announce(m, ev), 'Spiel B1 und B2. 0 zu 1. Seitenwechsel');
+});
+
+test('Spielerstatistik: bester Partner, Angstgegner, Serien', () => {
+  const ms = [
+    { ts: 1, a: ['a', 'b'], b: ['c', 'd'], win: 0 },
+    { ts: 2, a: ['a', 'b'], b: ['c', 'd'], win: 0 },
+    { ts: 3, a: ['a', 'c'], b: ['b', 'd'], win: 1 },
+    { ts: 4, a: ['a', 'd'], b: ['b', 'c'], win: 0 },
+  ];
+  const st = L.playerStats('a', ms);
+  assert.equal(st.bestPartner.id, 'b');
+  assert.equal(st.nemesis.id, 'b');  // je 1 Niederlage, gegen b die schlechtere Bilanz
+  assert.equal(st.bestStreak, 2);
+  assert.equal(st.streak, 1);
+  const players = ['a', 'b', 'c', 'd'].map(id => ({ id, name: id }));
+  const r = L.ranking(players, ms);
+  assert.equal(r.find(p => p.id === 'a').history.length, 5);
+});
+
+test('Faire Teams: ausgeglichenste Aufteilung zuerst', () => {
+  const t = L.fairTeams(['a', 'b', 'c', 'd'], { a: 1200, b: 1100, c: 900, d: 800 });
+  assert.deepEqual([t[0].a, t[0].b], [['a', 'd'], ['b', 'c']]);
+  assert.equal(t[0].diff, 0);
+  assert.equal(t[0].chance, 0.5);
+  assert.ok(t[2].diff > t[1].diff);
+});
+
+test('Kein Angstgegner bei positiver Bilanz', () => {
+  const ms = [
+    { ts: 1, a: ['a', 'b'], b: ['c', 'd'], win: 0 },
+    { ts: 2, a: ['a', 'b'], b: ['c', 'd'], win: 0 },
+    { ts: 3, a: ['a', 'b'], b: ['c', 'd'], win: 1 },
+  ];
+  assert.equal(L.playerStats('a', ms).nemesis, null);
+});
