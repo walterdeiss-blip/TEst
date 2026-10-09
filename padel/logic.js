@@ -128,7 +128,7 @@
       if (p[0] === p[1]) return m.cfg.golden ? '⚡ Golden Point' : 'Einstand';
       return 'Vorteil';
     }
-    return `${m.sets.length + 1}. Satz`;
+    return m.cfg.bestOf === 1 ? `${m.sets.length + 1}. Match` : `${m.sets.length + 1}. Satz`;
   }
 
   /* ---------- Matchstatistik aus dem Punkteverlauf ---------- */

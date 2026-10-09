@@ -1,7 +1,7 @@
 /* Padel – Service Worker: macht die App installierbar und offline nutzbar. */
 'use strict';
 
-const VERSION = 'padel-v8';
+const VERSION = 'padel-v9';
 const CORE = [
   './',
   'index.html',

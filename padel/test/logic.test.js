@@ -255,3 +255,11 @@ test('Stimmen: natürliche Frauenstimme zuerst, Männerstimmen nach hinten', () 
   assert.equal(ranked.find(r => r.name === 'Deutsch Deutschland').female, null);
   assert.equal(L.rankVoices([v('Samantha', 'en-US')]).length, 0);
 });
+
+test('Überschrift: 1. Match bei einem Satz, sonst Satznummer', () => {
+  assert.equal(L.statusText(L.newMatch({ names, bestOf: 1 })), '1. Match');
+  const m = L.newMatch({ names });
+  assert.equal(L.statusText(m), '1. Satz');
+  for (let i = 0; i < 6; i++) game(m, 0);
+  assert.equal(L.statusText(m), '2. Satz');
+});
