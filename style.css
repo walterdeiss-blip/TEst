@@ -834,6 +834,15 @@ html, body { background: #2a140a; }
   border-radius: 10px; background: rgba(0,0,0,.25);
   font-weight: 700;
 }
+#lobby-list li, #found-players li { display: flex; align-items: center; justify-content: space-between; }
+#found-players { list-style: none; padding: 0; margin: 0 0 8px; text-align: left; }
+#found-players li { padding: 8px 12px; margin: 4px 0; border-radius: 10px; background: rgba(0,0,0,.25); font-weight: 700; }
+.found-title { font-size: 20px; font-weight: 800; color: #9dff9d; margin: 4px 0; }
+#found-host { font-weight: 700; margin: 4px 0 8px; }
+.kick {
+  border: 0; border-radius: 50%; width: 28px; height: 28px; flex: none;
+  background: rgba(255,80,80,.85); color: #fff; font-weight: 900; cursor: pointer;
+}
 .ai-row { display: flex; gap: 8px; }
 .ai-row .big { margin-top: 6px; padding: 10px; font-size: 15px; }
 #over-ranking { text-align: left; margin: 0 auto 8px; max-width: 260px; font-weight: 700; }

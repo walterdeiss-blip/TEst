@@ -91,8 +91,16 @@
         <div class="or">oder mit Code beitreten</div>
         <div class="join-row">
           <input id="join-code" maxlength="5" placeholder="CODE" autocapitalize="characters" autocomplete="off" spellcheck="false">
-          <button class="big" id="btn-join">Beitreten</button>
+          <button class="big" id="btn-join">Gruppe suchen</button>
         </div>
+      </div>
+      <div id="join-found" class="hidden">
+        <p class="found-title" id="found-title"></p>
+        <p id="found-host"></p>
+        <ul id="found-players"></ul>
+        <p class="hint" id="found-rules"></p>
+        <button class="big green" id="btn-confirm-join">Gruppe beitreten</button>
+        <button class="big ghost" id="btn-cancel-join">Abbrechen</button>
       </div>
       <div id="online-wait" class="hidden">
         <div class="host-only">

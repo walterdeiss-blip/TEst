@@ -26,12 +26,17 @@ Zum Ausprobieren am Computer genügt es auch, `index.html` im Browser zu öffnen
 1. Alle öffnen die Seite (am besten über GitHub Pages, siehe oben).
 2. **Online mit Freunden → Neues Spiel erstellen**: Es erscheint ein 5-stelliger Spielcode.
    Mit **Einladung teilen** lässt sich ein Link per WhatsApp & Co. verschicken.
-3. Die Freunde öffnen den Link (oder tippen den Code bei **Beitreten** ein) und erscheinen in der Lobby.
-4. Der Gastgeber kann Computer-Spieler dazunehmen, Schieben/Schummeln einschalten und startet das Spiel.
+3. Die Freunde öffnen den Link (oder tippen den Code bei **Gruppe suchen** ein). Wird die Gruppe gefunden,
+   sehen sie, wessen Spiel es ist, wer schon dabei ist und welche Regeln gelten.
+4. Mit **Gruppe beitreten** bestätigen sie den Beitritt. Erst wenn der Gastgeber das bestätigt hat, steht
+   „✅ Du bist in der Gruppe“ – und beim Gastgeber „✅ … ist der Gruppe beigetreten“. Mit ✕ kann der Gastgeber
+   jemanden wieder entfernen.
+5. Der Gastgeber kann Computer-Spieler dazunehmen, Schieben/Schummeln einschalten und startet das Spiel.
 
 Die Handys verbinden sich direkt miteinander (Peer-to-Peer über WebRTC mit
 [PeerJS](https://peerjs.com/)); zum Verbindungsaufbau wird der kostenlose öffentliche PeerJS-Server genutzt,
-ein eigener Server ist nicht nötig. Der Spieler, der das Spiel erstellt, ist Gastgeber: Auf seinem Gerät läuft
+ein eigener Server ist nicht nötig. Kommt keine direkte Verbindung zwischen den Handys zustande (passiert oft im
+Mobilfunknetz), laufen die Nachrichten automatisch über diesen Vermittlungsserver. Der Spieler, der das Spiel erstellt, ist Gastgeber: Auf seinem Gerät läuft
 die Spiellogik, der Gast schickt seine Züge und bekommt den Spielstand zurück.
 Es spielen 2 bis 6 Spieler; verlässt jemand das Spiel, übernimmt ein Computer seinen Platz.
 

@@ -26,3 +26,9 @@ jobs:
         run: node .github/onlinetest/test.js
         env:
           NODE_PATH: .github/onlinetest/node_modules
+      - name: Gastgeber und Gast verbinden – ohne direkte Verbindung (Mobilfunk)
+        if: always()
+        run: node .github/onlinetest/test.js
+        env:
+          NODE_PATH: .github/onlinetest/node_modules
+          BLOCK_RTC: '1'

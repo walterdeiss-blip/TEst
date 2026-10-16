@@ -1334,7 +1334,7 @@ function showGameOver(result, durak) {
 
 const PEER_PREFIX = 'pokedurak-v2-';
 // Wird bei Änderungen am Online-Protokoll erhöht – Gastgeber und Gäste müssen gleich sein
-const NET_VERSION = 3;
+const NET_VERSION = 4;
 const PEERJS_URL = 'vendor/peerjs.min.js';   // PeerJS 1.5.5 (MIT)
 // ?local=1: Verbindung über BroadcastChannel zwischen Tabs (zum Testen ohne Internet)
 const LOCAL_TEST = new URLSearchParams(location.search).has('local');
@@ -1420,7 +1420,28 @@ function acceptGuest(link) {
 }
 
 function onHostMessage(link, m) {
+  // Schritt 1: Gast sucht die Gruppe → Infos schicken, aber noch NICHT aufnehmen
+  if (m.t === 'probe') {
+    link.send({
+      t: 'info', v: NET_VERSION, host: currentName(),
+      players: lobby.map(p => ({ name: p.name, kind: p.kind })),
+      rules: { transfer: !!settings.transfer, cheat: !!settings.cheat },
+      started: gameStarted, full: lobby.length >= MAX_PLAYERS,
+    });
+    if (!gameStarted && m.name) $('#online-status').textContent = `🔎 ${cleanName(m.name)} hat deine Gruppe gefunden…`;
+    return;
+  }
+  // Schritt 2: Gast hat „Gruppe beitreten“ bestätigt
   if (m.t === 'hello') {
+    // Derselbe Gast über einen anderen Verbindungsweg → nur die Verbindung tauschen
+    const again = link.peerId && lobby.find(p => p.link && p.link.peerId === link.peerId);
+    if (again) {
+      if (again.link !== link) { const old = again.link; old.player = null; again.link = link; link.player = again; old.close(); }
+      if (link.activate) link.activate();
+      link.send({ t: 'welcome', host: currentName(), you: again.name });
+      renderLobby();
+      return;
+    }
     if (m.v !== NET_VERSION) {
       link.send({ t: 'outdated', host: NET_VERSION });
       setTimeout(() => link.close(), 500);
@@ -1434,7 +1455,9 @@ function onHostMessage(link, m) {
     const p = { name: cleanName(m.name), kind: 'remote', hand: [], out: false, place: 0, link };
     link.player = p;
     lobby.push(p);
-    link.send({ t: 'welcome', host: currentName() });
+    if (link.activate) link.activate();
+    link.send({ t: 'welcome', host: currentName(), you: p.name });
+    $('#online-status').textContent = `✅ ${p.name} ist der Gruppe beigetreten`;
     renderLobby();
     return;
   }
@@ -1478,6 +1501,14 @@ function renderLobby() {
     const li = document.createElement('li');
     const icon = p.kind === 'ai' ? '🤖' : i === 0 ? '👑' : '🙂';
     li.textContent = `${icon} ${p.name}`;
+    if (MODE === 'host' && p.kind === 'remote' && !gameStarted) {
+      const x = document.createElement('button');
+      x.className = 'kick';
+      x.textContent = '✕';
+      x.setAttribute('aria-label', p.name + ' entfernen');
+      x.addEventListener('click', () => kickPlayer(p));
+      li.appendChild(x);
+    }
     list.appendChild(li);
   });
   $('#lobby-count').textContent = `${players.length} / ${MAX_PLAYERS} Spieler`;
@@ -1487,6 +1518,18 @@ function renderLobby() {
     $('#btn-remove-ai').disabled = !lobby.some(p => p.kind === 'ai');
     broadcast({ t: 'lobby', players: lobby.map(p => ({ name: p.name, kind: p.kind })), rules: settings });
   }
+}
+
+function kickPlayer(p) {
+  lobby = lobby.filter(x => x !== p);
+  if (p.link) {
+    const l = p.link;
+    p.link = null;
+    l.player = null;
+    l.send({ t: 'kicked' });
+    setTimeout(() => l.close(), 500);
+  }
+  renderLobby();
 }
 
 function addLobbyAI() {
@@ -1528,8 +1571,14 @@ async function guestHandle(m) {
       $('#online-menu').classList.add('hidden');
       $('#online-wait').classList.remove('hidden');
       document.querySelectorAll('.host-only').forEach(e => e.classList.add('hidden'));
-      $('#online-status').textContent = `Verbunden! Warte, bis ${hostName} das Spiel startet…`;
+      $('#join-found').classList.add('hidden');
+      $('#online-status').textContent = `✅ Du bist in der Gruppe von ${hostName}! Warte, bis ${hostName} das Spiel startet…`;
       onlineMsg('');
+      break;
+    case 'kicked':
+      transport = null;
+      $('#online-wait').classList.add('hidden');
+      onlineMsg(`${hostName || 'Der Gastgeber'} hat dich aus der Gruppe entfernt.`);
       break;
     case 'lobby':
       guestLobby = m.players;
@@ -1543,6 +1592,8 @@ async function guestHandle(m) {
       $('#btn-join').disabled = false;
       break;
     case 'full':
+      transport = null;
+      $('#online-wait').classList.add('hidden');
       onlineMsg('Das Spiel ist voll oder läuft schon.');
       $('#btn-join').disabled = false;
       break;
@@ -1621,7 +1672,7 @@ function loadPeerJS() {
 
 // Einheitliche Verbindung: { send, close, handler, closeHandler }
 function peerLink(conn) {
-  const link = { send: m => conn.send(m), close: () => conn.close(), handler: null, closeHandler: null };
+  const link = { send: m => conn.send(m), close: () => conn.close(), handler: null, closeHandler: null, peerId: conn.peer };
   conn.on('data', m => link.handler && link.handler(m));
   conn.on('close', () => link.closeHandler && link.closeHandler());
   conn.on('error', () => link.closeHandler && link.closeHandler());
@@ -1636,7 +1687,7 @@ function localHostChannel(code, onGuest) {
     if (to !== 'host') return;
     let link = links.get(from);
     if (!link) {
-      link = { send: msg => ch.postMessage({ from: 'host', to: from, m: msg }), close() {}, handler: null, closeHandler: null };
+      link = { send: msg => ch.postMessage({ from: 'host', to: from, m: msg }), close() {}, handler: null, closeHandler: null, peerId: from };
       links.set(from, link);
       onGuest(link);
     }
@@ -1649,6 +1700,47 @@ function localGuestLink(code) {
   const ch = new BroadcastChannel('pokedurak-' + code);
   const link = { send: m => ch.postMessage({ from: id, to: 'host', m }), close: () => ch.close(), handler: null, closeHandler: null };
   ch.onmessage = e => { if (e.data.to === id && link.handler) link.handler(e.data.m); };
+  return link;
+}
+
+// Ausweichweg: Kommt keine direkte Verbindung zwischen den Handys zustande (häufig im
+// Mobilfunknetz), laufen die Nachrichten über den Vermittlungsserver, mit dem beide ohnehin verbunden sind.
+const RELAY = 'pokedurakRelay';
+const relayLinks = new Map();
+function relaySend(dst, m) {
+  if (peer && !peer.destroyed && peer.socket) peer.socket.send({ type: 'CANDIDATE', dst, payload: { [RELAY]: 1, m } });
+}
+function relayData(d) {
+  return d && d.type === 'CANDIDATE' && d.src && d.payload && d.payload[RELAY] ? d.payload.m : null;
+}
+function relayLink(dst) {
+  let last = Date.now(), pinger = null;
+  const link = {
+    peerId: dst, relay: true, closed: false, handler: null, closeHandler: null,
+    send: m => { if (!link.closed) relaySend(dst, m); },
+    // Ab dem Beitritt: Lebenszeichen schicken und Verbindungsabbruch erkennen
+    activate() {
+      if (pinger) return;
+      last = Date.now();
+      pinger = setInterval(() => {
+        if (Date.now() - last > 45000) return link.shut();
+        relaySend(dst, { t: 'ping' });
+      }, 4000);
+    },
+    receive(m) {
+      last = Date.now();
+      if (m.t === 'ping') return;
+      if (m.t === 'bye') return link.shut();
+      if (link.handler) link.handler(m);
+    },
+    shut() {
+      if (link.closed) return;
+      link.closed = true;
+      clearInterval(pinger);
+      if (link.closeHandler) link.closeHandler();
+    },
+    close() { if (!link.closed) relaySend(dst, { t: 'bye' }); link.shut(); },
+  };
   return link;
 }
 
@@ -1692,6 +1784,17 @@ function startHostPeer(code, fresh) {
   peer.on('connection', conn => {
     conn.on('open', () => acceptGuest(peerLink(conn)));
   });
+  peer.socket.on('message', d => {
+    const m = relayData(d);
+    if (!m) return;
+    let link = relayLinks.get(d.src);
+    if (!link || link.closed) {
+      link = relayLink(d.src);
+      relayLinks.set(d.src, link);
+      acceptGuest(link);
+    }
+    link.receive(m);
+  });
   peer.on('disconnected', () => {
     if (!gameStarted) $('#online-status').textContent = 'Verbindung zum Server unterbrochen – verbinde neu…';
     scheduleHostReconnect(1500);
@@ -1729,70 +1832,144 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden && MODE === 'host' && peer && (peer.disconnected || peer.destroyed)) scheduleHostReconnect(100);
 });
 
+// Beitreten in zwei Schritten: 1. Gruppe suchen und anzeigen, 2. Beitritt bestätigen
+let joinFound = null;     // Infos der gefundenen Gruppe
+let joinLinks = null;     // { relay, rtc } – mögliche Verbindungswege zum Gastgeber
+
 async function joinGame() {
   const code = $('#join-code').value.trim().toUpperCase();
   if (code.length < 4) return onlineMsg('Bitte den Spielcode eingeben.');
   currentName();
-  onlineMsg('Verbinde…');
   $('#btn-join').disabled = true;
+  $('#join-found').classList.add('hidden');
   MODE = 'guest';
+  joinFound = null;
+  onlineMsg(`🔎 Suche Gruppe ${code}…`);
 
-  const connected = link => {
-    transport = link;
-    link.handler = onGuestMessage;
-    link.closeHandler = onDisconnect;
-    send({ t: 'hello', name: currentName(), v: NET_VERSION });
+  const started = Date.now();
+  let attempt = 0, probeTimer = null;
+  const probe = () => {
+    if (joinFound || MODE !== 'guest' || transport) return;
+    if (Date.now() - started > 120000) {
+      $('#btn-join').disabled = false;
+      return onlineMsg(`Gruppe ${code} nicht gefunden. Stimmt der Code? Hat der Gastgeber PokéDurak geöffnet (nicht im Hintergrund)? ` +
+        'Habt ihr beide die neueste Version (Spiel ganz schließen und neu öffnen)?');
+    }
+    attempt++;
+    if (attempt > 2) onlineMsg(`🔎 Suche Gruppe ${code}… (Versuch ${attempt}) – der Gastgeber muss PokéDurak geöffnet haben.`);
+    const msg = { t: 'probe', v: NET_VERSION, name: currentName() };
+    joinLinks.relay.send(msg);
+    if (joinLinks.rtc) joinLinks.rtc.send(msg);
+    probeTimer = setTimeout(probe, 2500);
   };
-  if (LOCAL_TEST) return connected(localGuestLink(code));
+  const discovery = m => {
+    if (m.t === 'info') { if (!joinFound) { clearTimeout(probeTimer); showFoundGroup(m, code); } return; }
+    if (m.t === 'outdated') return guestHandle(m);
+  };
+
+  if (LOCAL_TEST) {
+    joinLinks = { relay: localGuestLink(code), rtc: null };
+    joinLinks.relay.handler = m => (transport ? onGuestMessage(m) : discovery(m));
+    return probe();
+  }
 
   try { await loadPeerJS(); } catch (e) {
     $('#btn-join').disabled = false;
     return onlineMsg(e.message + '. Bist du online?');
   }
-  // Ist der Gastgeber gerade nicht erreichbar (z. B. kurz in WhatsApp), wird bis zu 2 Minuten
-  // lang immer wieder versucht, statt sofort aufzugeben.
   if (peer && !peer.destroyed) peer.destroy();
   peer = new Peer(peerOptions());
-  const started = Date.now();
-  let attempt = 0, retryTimer = null, done = false;
-  const giveUp = text => {
-    done = true;
-    clearTimeout(retryTimer);
-    onlineMsg(text);
-    $('#btn-join').disabled = false;
-  };
-  const tryConnect = () => {
-    if (done || transport) return;
-    if (Date.now() - started > 120000) {
-      return giveUp('Der Gastgeber ist nicht erreichbar. Stimmt der Code? Hat der Gastgeber PokéDurak geöffnet (nicht im Hintergrund)? ' +
-        'Habt ihr beide die neueste Version? Sonst ein anderes Netz probieren (WLAN statt Mobilfunk).');
-    }
-    attempt++;
-    if (peer.disconnected) { try { peer.reconnect(); } catch { /* egal */ } }
-    const conn = peer.connect(PEER_PREFIX + code, { reliable: true, serialization: 'json' });
+  const hostId = PEER_PREFIX + code;
+  const relay = relayLink(hostId);
+  joinLinks = { relay, rtc: null };
+  relay.handler = m => (transport === relay ? onGuestMessage(m) : discovery(m));
+  peer.socket.on('message', d => { if (d && d.src === hostId) { const m = relayData(d); if (m) relay.receive(m); } });
+
+  // Parallel eine direkte Verbindung versuchen (schneller) – klappt sie nicht, bleibt der Ausweichweg
+  let rtcPending = false;
+  const tryRtc = () => {
+    if (rtcPending || joinLinks.rtc || transport || !peer || peer.disconnected) return;
+    rtcPending = true;
+    const conn = peer.connect(hostId, { reliable: true, serialization: 'json' });
+    const timer = setTimeout(() => { rtcPending = false; }, 10000);
     conn.on('open', () => {
-      if (done || transport) return;
-      done = true;
-      clearTimeout(retryTimer);
-      connected(peerLink(conn));
+      clearTimeout(timer);
+      rtcPending = false;
+      if (transport) { conn.close(); return; }
+      const l = peerLink(conn);
+      l.handler = m => (transport === l ? onGuestMessage(m) : discovery(m));
+      l.closeHandler = () => { if (joinLinks && joinLinks.rtc === l) joinLinks.rtc = null; };
+      joinLinks.rtc = l;
+      if (!joinFound) l.send({ t: 'probe', v: NET_VERSION, name: currentName() });
     });
-    // Falls weder Fehler noch Verbindung kommen: nach 8 s nochmal versuchen
-    clearTimeout(retryTimer);
-    retryTimer = setTimeout(tryConnect, 8000);
   };
-  const retrySoon = () => {
-    if (done || transport) return;
-    onlineMsg(`Warte auf den Gastgeber… (Versuch ${attempt}) – er muss PokéDurak geöffnet haben.`);
-    clearTimeout(retryTimer);
-    retryTimer = setTimeout(tryConnect, 3000);
-  };
-  peer.on('open', () => tryConnect());
-  peer.on('disconnected', () => { if (!done && !transport) setTimeout(() => { try { peer.reconnect(); } catch { /* egal */ } }, 1000); });
-  peer.on('error', e => {
-    if (transport || done) return;
-    if (['peer-unavailable', 'network', 'server-error', 'socket-error', 'socket-closed', 'webrtc'].includes(e.type)) return retrySoon();
-    giveUp('Verbindungsfehler: ' + e.type);
+  joinLinks.tryRtc = tryRtc;
+  peer.on('open', () => { probe(); tryRtc(); });
+  peer.on('disconnected', () => {
+    if (transport && transport !== relay) return;
+    setTimeout(() => { try { if (peer.disconnected && !peer.destroyed) peer.reconnect(); } catch { /* egal */ } }, 1000);
   });
+  peer.on('error', e => {
+    if (['peer-unavailable', 'network', 'server-error', 'socket-error', 'socket-closed', 'webrtc'].includes(e.type)) return;
+    if (!transport) { $('#btn-join').disabled = false; onlineMsg('Verbindungsfehler: ' + e.type); }
+  });
+}
+
+function showFoundGroup(info, code) {
+  joinFound = info;
+  $('#btn-join').disabled = false;
+  if (info.v !== NET_VERSION) return guestHandle({ t: 'outdated', host: info.v || 0 });
+  const host = cleanName(info.host);
+  const rules = `${info.rules.transfer ? '➡️ Schieben erlaubt' : 'kein Schieben'} · ${info.rules.cheat ? '🤫 Schummeln erlaubt' : 'kein Schummeln'}`;
+  $('#found-title').textContent = `✅ Gruppe ${code} gefunden`;
+  $('#found-host').textContent = `Gastgeber: 👑 ${host}`;
+  const ul = $('#found-players');
+  ul.innerHTML = '';
+  info.players.forEach((p, i) => {
+    const li = document.createElement('li');
+    li.textContent = `${p.kind === 'ai' ? '🤖' : i === 0 ? '👑' : '🙂'} ${p.name}`;
+    ul.appendChild(li);
+  });
+  $('#found-rules').textContent = `${info.players.length} / ${MAX_PLAYERS} Spieler · ${rules}`;
+  const blocked = info.started || info.full;
+  $('#btn-confirm-join').disabled = blocked;
+  onlineMsg(blocked ? (info.started ? 'Das Spiel läuft schon – warte, bis es vorbei ist.' : 'Die Gruppe ist voll.') : '');
+  $('#online-menu').classList.add('hidden');
+  $('#join-found').classList.remove('hidden');
+  if (joinLinks && joinLinks.tryRtc) joinLinks.tryRtc();
+}
+
+function confirmJoin() {
+  if (!joinFound || !joinLinks || transport) return;
+  $('#btn-confirm-join').disabled = true;
+  onlineMsg('Trete der Gruppe bei…');
+  const choose = link => {
+    transport = link;
+    link.handler = onGuestMessage;
+    link.closeHandler = onDisconnect;
+    if (link.activate) link.activate();
+    send({ t: 'hello', name: currentName(), v: NET_VERSION });
+  };
+  const viaRtc = joinLinks.rtc;
+  choose(viaRtc || joinLinks.relay);
+  if (viaRtc) joinLinks.relay.closeHandler = null;
+  else if (joinLinks.rtc) joinLinks.rtc.close();
+  // Keine Bestätigung vom Gastgeber? Über den Ausweichweg nochmal versuchen.
+  let tries = 0;
+  const check = () => {
+    if (hostName || MODE !== 'guest') return;
+    tries++;
+    if (tries > 6) {
+      transport = null;
+      $('#btn-confirm-join').disabled = false;
+      return onlineMsg('Keine Bestätigung vom Gastgeber erhalten. Bitte nochmal auf „Gruppe beitreten“ tippen.');
+    }
+    if (transport !== joinLinks.relay) { const old = transport; choose(joinLinks.relay); old.closeHandler = null; old.close(); }
+    else send({ t: 'hello', name: currentName(), v: NET_VERSION });
+    onlineMsg(`Trete der Gruppe bei… (Versuch ${tries + 1})`);
+    setTimeout(check, 5000);
+  };
+  setTimeout(check, 5000);
 }
 
 async function shareInvite() {
@@ -1887,6 +2064,8 @@ $('#btn-online').addEventListener('click', () => showScreen('#screen-online'));
 $('#btn-online-back').addEventListener('click', backToMenu);
 $('#btn-host').addEventListener('click', hostGame);
 $('#btn-join').addEventListener('click', joinGame);
+$('#btn-confirm-join').addEventListener('click', confirmJoin);
+$('#btn-cancel-join').addEventListener('click', backToMenu);
 $('#btn-share').addEventListener('click', shareInvite);
 $('#btn-add-ai').addEventListener('click', addLobbyAI);
 $('#btn-remove-ai').addEventListener('click', removeLobbyAI);
@@ -1957,9 +2136,9 @@ if (joinParam) {
   $('#screen-online').classList.remove('hidden');
   $('#join-code').value = joinParam.toUpperCase();
   if (myName) {
-    joinGame();   // Name bekannt → direkt beitreten
+    joinGame();   // Name bekannt → Gruppe suchen (Beitritt muss bestätigt werden)
   } else {
-    onlineMsg('Gib oben deinen Namen ein und tippe auf „Beitreten“.');
+    onlineMsg('Gib oben deinen Namen ein und tippe auf „Gruppe suchen“.');
     $('#player-name').focus();
   }
 }
