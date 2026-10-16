@@ -1333,6 +1333,8 @@ function showGameOver(result, durak) {
  * ========================================================= */
 
 const PEER_PREFIX = 'pokedurak-v2-';
+// Wird bei Änderungen am Online-Protokoll erhöht – Gastgeber und Gäste müssen gleich sein
+const NET_VERSION = 3;
 const PEERJS_URL = 'vendor/peerjs.min.js';   // PeerJS 1.5.5 (MIT)
 // ?local=1: Verbindung über BroadcastChannel zwischen Tabs (zum Testen ohne Internet)
 const LOCAL_TEST = new URLSearchParams(location.search).has('local');
@@ -1419,6 +1421,11 @@ function acceptGuest(link) {
 
 function onHostMessage(link, m) {
   if (m.t === 'hello') {
+    if (m.v !== NET_VERSION) {
+      link.send({ t: 'outdated', host: NET_VERSION });
+      setTimeout(() => link.close(), 500);
+      return;
+    }
     if (gameStarted || lobby.length >= MAX_PLAYERS) {
       link.send({ t: 'full' });
       setTimeout(() => link.close(), 500);
@@ -1529,6 +1536,11 @@ async function guestHandle(m) {
       renderLobby();
       $('#guest-rules').textContent =
         `Regeln: ${m.rules.transfer ? 'Schieben erlaubt' : 'kein Schieben'} · ${m.rules.cheat ? 'Schummeln erlaubt' : 'kein Schummeln'}`;
+      break;
+    case 'outdated':
+      onlineMsg((m.host > NET_VERSION ? 'Deine' : 'Die Version des Gastgebers') +
+        ' ist veraltet. Bitte beide das Spiel ganz schließen und neu öffnen (Android-App: neue APK installieren).');
+      $('#btn-join').disabled = false;
       break;
     case 'full':
       onlineMsg('Das Spiel ist voll oder läuft schon.');
@@ -1684,7 +1696,7 @@ async function joinGame() {
     transport = link;
     link.handler = onGuestMessage;
     link.closeHandler = onDisconnect;
-    send({ t: 'hello', name: currentName() });
+    send({ t: 'hello', name: currentName(), v: NET_VERSION });
   };
   if (LOCAL_TEST) return connected(localGuestLink(code));
 
@@ -1711,7 +1723,7 @@ async function joinGame() {
     clearTimeout(timer);
     $('#btn-join').disabled = false;
     onlineMsg(e.type === 'peer-unavailable'
-      ? 'Spiel nicht gefunden – stimmt der Code?'
+      ? 'Spiel nicht gefunden. Stimmt der Code? Läuft beim Gastgeber noch die Lobby? Habt ihr beide die neueste Version (Spiel schließen und neu öffnen)?'
       : 'Verbindungsfehler: ' + e.type);
   });
 }

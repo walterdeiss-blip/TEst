@@ -1,7 +1,7 @@
 /* PokéDurak – Service Worker: macht das Spiel installierbar und offline spielbar. */
 'use strict';
 
-const VERSION = 'pokedurak-v10';
+const VERSION = 'pokedurak-v11';
 const CORE = [
   './',
   'index.html',
@@ -47,15 +47,26 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Eigene Dateien: sofort aus dem Speicher, im Hintergrund aktualisieren
-  if (url.origin === self.location.origin) {
+  // Eigene Dateien: immer zuerst die neueste Version aus dem Netz holen
+  // (damit alle Mitspieler dieselbe Version haben), ohne Internet aus dem Speicher.
+  // Die Padel-App im Unterordner hat ihren eigenen Service Worker.
+  if (url.origin === self.location.origin && !url.pathname.includes('/padel/')) {
     e.respondWith(caches.open(VERSION).then(async cache => {
-      const hit = await cache.match(req, { ignoreSearch: true });
-      const update = fetch(req).then(res => {
+      try {
+        const res = await withTimeout(fetch(req, { cache: 'no-cache' }), 4000);
         if (res.ok) cache.put(req, res.clone());
         return res;
-      }).catch(() => hit);
-      return hit || update;
+      } catch {
+        const hit = await cache.match(req, { ignoreSearch: true });
+        return hit || Response.error();
+      }
     }));
   }
 });
+
+function withTimeout(promise, ms) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('timeout')), ms);
+    promise.then(v => { clearTimeout(t); resolve(v); }, e => { clearTimeout(t); reject(e); });
+  });
+}
