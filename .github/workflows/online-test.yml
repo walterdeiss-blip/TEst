@@ -1,0 +1,28 @@
+# Prüft das Online-Spiel auf der echten Seite (GitHub Pages) über den öffentlichen PeerJS-Server.
+name: Online-Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: PeerJS-Server erreichbar?
+        run: |
+          curl -sS -m 15 -w "\nHTTP %{http_code}\n" https://0.peerjs.com/ || true
+          curl -sS -m 15 -w "\nHTTP %{http_code}\n" "https://0.peerjs.com/peerjs/id?ts=$(date +%s)" || true
+      - name: Playwright installieren
+        run: |
+          cd .github/onlinetest
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund playwright@1.56.1 > /dev/null
+          npx playwright install --with-deps chromium > /dev/null
+      - name: Gastgeber und Gast verbinden
+        run: node .github/onlinetest/test.js
+        env:
+          NODE_PATH: .github/onlinetest/node_modules
