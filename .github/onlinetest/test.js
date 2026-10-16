@@ -31,7 +31,9 @@ const URL = process.env.GAME_URL || 'https://walterdeiss-blip.github.io/TEst/';
   console.log('Spielcode beim Gastgeber:', JSON.stringify(code), '| Meldung:', await H.textContent('#online-msg'));
   if (!/^[A-Z0-9]{5}$/.test(code)) { console.log(log.join('\n')); console.log('ERGEBNIS: Gastgeber bekommt keinen Spielcode'); process.exit(1); }
   await G.goto(URL + '?join=' + code);
-  await G.fill('#player-name', 'Gast'); await G.click('#btn-join');
+  // Einladungslink sucht automatisch, wenn der Name schon gespeichert ist – sonst selbst tippen
+  await G.waitForTimeout(800);
+  if (await G.isEnabled('#btn-join') && await G.isVisible('#btn-join')) { await G.fill('#player-name', 'Gast'); await G.click('#btn-join'); }
   let found = false, ok = false;
   for (let i = 0; i < 60 && !found; i++) {
     await G.waitForTimeout(500);
