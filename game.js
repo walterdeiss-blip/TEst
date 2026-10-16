@@ -1673,16 +1673,61 @@ async function hostGame() {
     return;
   }
   try { await loadPeerJS(); } catch (e) { return onlineMsg(e.message + '. Bist du online?'); }
+  startHostPeer(code, true);
+}
+
+// Gastgeber beim Vermittlungsserver anmelden. Bricht die Verbindung ab (z. B. weil man
+// zum Teilen des Links kurz in WhatsApp war), wird automatisch mit DEMSELBEN Code neu verbunden.
+let hostCode = '';
+let reconnectTimer = null;
+function startHostPeer(code, fresh) {
+  hostCode = code;
+  if (peer && !peer.destroyed) peer.destroy();
   peer = new Peer(PEER_PREFIX + code, peerOptions());
-  peer.on('open', () => { $('#room-code').textContent = code; });
+  peer.on('open', () => {
+    $('#room-code').textContent = code;
+    if (!gameStarted) $('#online-status').textContent = lobby.length > 1 ? 'Mitspieler da – du kannst starten.' : 'Warte auf Mitspieler…';
+    onlineMsg('');
+  });
   peer.on('connection', conn => {
     conn.on('open', () => acceptGuest(peerLink(conn)));
   });
+  peer.on('disconnected', () => {
+    if (!gameStarted) $('#online-status').textContent = 'Verbindung zum Server unterbrochen – verbinde neu…';
+    scheduleHostReconnect(1500);
+  });
   peer.on('error', e => {
-    if (e.type === 'unavailable-id') { peer.destroy(); hostGame(); return; }
+    if (e.type === 'unavailable-id') {
+      // Neues Spiel: anderer Code. Neu verbinden: der alte Code ist noch kurz belegt → gleich nochmal.
+      if (fresh) { startHostPeer(makeCode(), true); return; }
+      scheduleHostReconnect(3000, true);
+      return;
+    }
+    if (['network', 'server-error', 'socket-error', 'socket-closed'].includes(e.type)) {
+      scheduleHostReconnect(3000);
+      return;
+    }
     if (!gameStarted) onlineMsg('Verbindungsfehler: ' + e.type);
   });
+  peer.on('open', () => { fresh = false; });
 }
+
+function scheduleHostReconnect(ms, recreate = false) {
+  clearTimeout(reconnectTimer);
+  reconnectTimer = setTimeout(() => {
+    if (MODE !== 'host' || !hostCode) return;
+    if (document.hidden) return scheduleHostReconnect(2000, recreate);
+    if (recreate || !peer || peer.destroyed) { startHostPeer(hostCode, false); return; }
+    if (peer.disconnected) {
+      try { peer.reconnect(); } catch { startHostPeer(hostCode, false); }
+    }
+  }, ms);
+}
+
+// Zurück ins Spiel gewechselt: sofort prüfen, ob die Verbindung zum Server noch steht
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && MODE === 'host' && peer && (peer.disconnected || peer.destroyed)) scheduleHostReconnect(100);
+});
 
 async function joinGame() {
   const code = $('#join-code').value.trim().toUpperCase();
@@ -1704,27 +1749,49 @@ async function joinGame() {
     $('#btn-join').disabled = false;
     return onlineMsg(e.message + '. Bist du online?');
   }
+  // Ist der Gastgeber gerade nicht erreichbar (z. B. kurz in WhatsApp), wird bis zu 2 Minuten
+  // lang immer wieder versucht, statt sofort aufzugeben.
+  if (peer && !peer.destroyed) peer.destroy();
   peer = new Peer(peerOptions());
-  const timer = setTimeout(() => {
-    if (!transport) {
-      onlineMsg('Keine Verbindung möglich. Prüfe den Code oder versucht es in einem anderen Netz (z. B. WLAN statt Mobilfunk).');
-      $('#btn-join').disabled = false;
+  const started = Date.now();
+  let attempt = 0, retryTimer = null, done = false;
+  const giveUp = text => {
+    done = true;
+    clearTimeout(retryTimer);
+    onlineMsg(text);
+    $('#btn-join').disabled = false;
+  };
+  const tryConnect = () => {
+    if (done || transport) return;
+    if (Date.now() - started > 120000) {
+      return giveUp('Der Gastgeber ist nicht erreichbar. Stimmt der Code? Hat der Gastgeber PokéDurak geöffnet (nicht im Hintergrund)? ' +
+        'Habt ihr beide die neueste Version? Sonst ein anderes Netz probieren (WLAN statt Mobilfunk).');
     }
-  }, 20000);
-  peer.on('open', () => {
+    attempt++;
+    if (peer.disconnected) { try { peer.reconnect(); } catch { /* egal */ } }
     const conn = peer.connect(PEER_PREFIX + code, { reliable: true, serialization: 'json' });
     conn.on('open', () => {
-      clearTimeout(timer);
+      if (done || transport) return;
+      done = true;
+      clearTimeout(retryTimer);
       connected(peerLink(conn));
     });
-  });
+    // Falls weder Fehler noch Verbindung kommen: nach 8 s nochmal versuchen
+    clearTimeout(retryTimer);
+    retryTimer = setTimeout(tryConnect, 8000);
+  };
+  const retrySoon = () => {
+    if (done || transport) return;
+    onlineMsg(`Warte auf den Gastgeber… (Versuch ${attempt}) – er muss PokéDurak geöffnet haben.`);
+    clearTimeout(retryTimer);
+    retryTimer = setTimeout(tryConnect, 3000);
+  };
+  peer.on('open', () => tryConnect());
+  peer.on('disconnected', () => { if (!done && !transport) setTimeout(() => { try { peer.reconnect(); } catch { /* egal */ } }, 1000); });
   peer.on('error', e => {
-    if (transport) return;
-    clearTimeout(timer);
-    $('#btn-join').disabled = false;
-    onlineMsg(e.type === 'peer-unavailable'
-      ? 'Spiel nicht gefunden. Stimmt der Code? Läuft beim Gastgeber noch die Lobby? Habt ihr beide die neueste Version (Spiel schließen und neu öffnen)?'
-      : 'Verbindungsfehler: ' + e.type);
+    if (transport || done) return;
+    if (['peer-unavailable', 'network', 'server-error', 'socket-error', 'socket-closed', 'webrtc'].includes(e.type)) return retrySoon();
+    giveUp('Verbindungsfehler: ' + e.type);
   });
 }
 
@@ -1889,5 +1956,10 @@ if (joinParam) {
   $('#screen-start').classList.add('hidden');
   $('#screen-online').classList.remove('hidden');
   $('#join-code').value = joinParam.toUpperCase();
-  onlineMsg(myName ? '' : 'Gib oben deinen Namen ein und tippe auf „Beitreten“.');
+  if (myName) {
+    joinGame();   // Name bekannt → direkt beitreten
+  } else {
+    onlineMsg('Gib oben deinen Namen ein und tippe auf „Beitreten“.');
+    $('#player-name').focus();
+  }
 }
