@@ -12,6 +12,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Server-Weiterleitung prüfen
+        run: |
+          node --version
+          npx -y node@22 .github/onlinetest/relaydiag.js || true
       - name: PeerJS-Server erreichbar?
         run: |
           curl -sS -m 15 -w "\nHTTP %{http_code}\n" https://0.peerjs.com/ || true
