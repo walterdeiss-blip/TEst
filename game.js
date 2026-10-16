@@ -1705,13 +1705,23 @@ function localGuestLink(code) {
 
 // Ausweichweg: Kommt keine direkte Verbindung zwischen den Handys zustande (häufig im
 // Mobilfunknetz), laufen die Nachrichten über den Vermittlungsserver, mit dem beide ohnehin verbunden sind.
+// Der öffentliche Server leitet nur Nachrichten weiter, die wie echte Verbindungsdaten aussehen –
+// alles andere beendet die Verbindung. Darum die Form einer ICE-Kandidaten-Nachricht.
 const RELAY = 'pokedurakRelay';
+const RELAY_CONN = 'dc_pokedurakrelay';
 const relayLinks = new Map();
 function relaySend(dst, m) {
-  if (peer && !peer.destroyed && peer.socket) peer.socket.send({ type: 'CANDIDATE', dst, payload: { [RELAY]: 1, m } });
+  if (!peer || peer.destroyed || !peer.socket) return;
+  peer.socket.send({
+    type: 'CANDIDATE', dst,
+    payload: { type: 'data', connectionId: RELAY_CONN, candidate: { candidate: '', sdpMid: '0', sdpMLineIndex: 0 }, [RELAY]: 1, m },
+  });
 }
 function relayData(d) {
-  return d && d.type === 'CANDIDATE' && d.src && d.payload && d.payload[RELAY] ? d.payload.m : null;
+  if (!(d && d.type === 'CANDIDATE' && d.src && d.payload && d.payload[RELAY])) return null;
+  // PeerJS hebt unbekannte Kandidaten-Nachrichten auf – wegwerfen, sonst wächst der Speicher
+  if (peer && peer._lostMessages) peer._lostMessages.delete(RELAY_CONN);
+  return d.payload.m;
 }
 function relayLink(dst) {
   let last = Date.now(), pinger = null;
@@ -1849,6 +1859,7 @@ async function joinGame() {
   const started = Date.now();
   let attempt = 0, probeTimer = null;
   const probe = () => {
+    clearTimeout(probeTimer);
     if (joinFound || MODE !== 'guest' || transport) return;
     if (Date.now() - started > 120000) {
       $('#btn-join').disabled = false;
@@ -1904,7 +1915,8 @@ async function joinGame() {
     });
   };
   joinLinks.tryRtc = tryRtc;
-  peer.on('open', () => { probe(); tryRtc(); });
+  let searching = false;
+  peer.on('open', () => { if (!searching) { searching = true; probe(); } tryRtc(); });
   peer.on('disconnected', () => {
     if (transport && transport !== relay) return;
     setTimeout(() => { try { if (peer.disconnected && !peer.destroyed) peer.reconnect(); } catch { /* egal */ } }, 1000);

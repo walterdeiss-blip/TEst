@@ -55,6 +55,21 @@ const URL = process.env.GAME_URL || 'https://walterdeiss-blip.github.io/TEst/';
     await H.click('#btn-host-start');
     await G.waitForTimeout(8000);
     console.log('Spiel läuft beim Gast:', await G.evaluate(() => S.phase !== 'idle' ? S.players.map(p => p.name).join(', ') : 'nein'));
+    // Beide spielen automatisch ein ganzes Spiel – prüft, dass alle Züge und Spielstände ankommen
+    const bot = () => setInterval(() => {
+      if (!myInputAllowed()) return;
+      for (const c of P(ME).hand) { const t = dropTargets(c).find(x => x.legal); if (t) { playTo(c, t.key); return; } }
+      if ($('#action').dataset.act && !$('#action').classList.contains('hidden')) onAction();
+    }, 200);
+    await H.evaluate(bot); await G.evaluate(bot);
+    try {
+      await H.waitForFunction(() => S.over, null, { timeout: 240000 });
+      await G.waitForFunction(() => S.over, null, { timeout: 30000 });
+      const a = await H.evaluate(() => JSON.stringify(S.players.map(p => p.place)));
+      const b2 = await G.evaluate(() => JSON.stringify(S.players.map(p => p.place)));
+      console.log('3) Spiel zu Ende – Platzierungen Gastgeber', a, 'Gast', b2, a === b2 ? '✓ gleich' : '✗ unterschiedlich');
+      if (a !== b2) ok = false;
+    } catch (e) { console.log('3) Spiel nicht zu Ende gekommen:', e.message); ok = false; }
   }
   console.log('--- Browser-Protokoll ---\n' + log.filter(l => !/favicon/.test(l)).slice(-40).join('\n'));
   console.log(ok ? 'ERGEBNIS: Einladen funktioniert' : 'ERGEBNIS: Gast kann nicht beitreten');
